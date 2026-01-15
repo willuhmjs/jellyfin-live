@@ -35,15 +35,24 @@
 						>
 							Library
 						</a>
+						<a
+							href="/settings"
+							class="px-3 py-2 rounded-md text-sm font-medium transition-colors {$page.url.pathname.startsWith('/settings')
+								? 'bg-gray-800 text-white'
+								: 'text-gray-300 hover:bg-gray-700 hover:text-white'}"
+						>
+							Settings
+						</a>
 					</div>
 				</div>
 			</div>
-            <!-- Mobile Menu Placeholder -->
-            <div class="md:hidden flex space-x-4">
-                 <a href="/dashboard" class="text-gray-300 hover:text-white">Dash</a>
-                 <a href="/guide" class="text-gray-300 hover:text-white">Guide</a>
-                 <a href="/library" class="text-gray-300 hover:text-white">Lib</a>
-            </div>
+							     <!-- Mobile Menu Placeholder -->
+							     <div class="md:hidden flex space-x-4">
+							          <a href="/dashboard" class="text-gray-300 hover:text-white">Dash</a>
+							          <a href="/guide" class="text-gray-300 hover:text-white">Guide</a>
+							          <a href="/library" class="text-gray-300 hover:text-white">Lib</a>
+							          <a href="/settings" class="text-gray-300 hover:text-white">Set</a>
+							     </div>
 		</div>
 	</div>
 </nav>

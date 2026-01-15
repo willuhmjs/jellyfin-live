@@ -12,16 +12,32 @@ export async function load({ cookies }) {
     const JELLYFIN_HOST = await jellyfin.getHost();
 
     try {
-        const recordings = await jellyfin.getRecordings(userId, sessionId);
+        const [recordings, channels] = await Promise.all([
+            jellyfin.getRecordings(userId, sessionId),
+            jellyfin.getChannels(userId, sessionId)
+        ]);
+
+        // Create channel map for fallback
+        const channelMap = new Map();
+        if (channels) {
+            channels.forEach(c => channelMap.set(c.Id, c.Name));
+        }
 
         // Group recordings by Series
         const groups = {};
         for (const rec of recordings) {
+            // Fix ChannelName if missing
+            if (!rec.ChannelName && rec.ChannelId) {
+                rec.ChannelName = channelMap.get(rec.ChannelId);
+            }
+
             // Use SeriesId if available (for shows), otherwise use the Item Id (for movies/singles)
             const isSeries = !!rec.SeriesId;
             const groupId = rec.SeriesId || rec.Id;
             // Prefer SeriesName, fallback to Name
             const groupName = rec.SeriesName || rec.Name;
+
+            const recDate = rec.DateCreated ? new Date(rec.DateCreated).getTime() : (rec.StartDate ? new Date(rec.StartDate).getTime() : 0);
 
             if (!groups[groupId]) {
                 groups[groupId] = {
@@ -30,7 +46,7 @@ export async function load({ cookies }) {
                     isSeries: isSeries,
                     seriesId: rec.SeriesId,
                     recordings: [],
-                    lastRecorded: new Date(rec.DateCreated).getTime(),
+                    lastRecorded: recDate,
                     // If it's a series, use SeriesId for image (Series Primary). If not, use Item Id.
                     imageId: rec.SeriesId || rec.Id
                 };
@@ -39,7 +55,6 @@ export async function load({ cookies }) {
             groups[groupId].recordings.push(rec);
 
             // Keep track of the most recent recording in the group
-            const recDate = new Date(rec.DateCreated).getTime();
             if (recDate > groups[groupId].lastRecorded) {
                 groups[groupId].lastRecorded = recDate;
             }

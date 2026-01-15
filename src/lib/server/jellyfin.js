@@ -190,7 +190,7 @@ export async function getRecordings(userId, token) {
 		SortBy: 'DateCreated',
 		SortOrder: 'Descending',
 		EnableTotalRecordCount: 'false',
-	       Fields: 'Overview,EpisodeTitle,ChannelName,SeriesId,SeriesName,SeasonId,IsSeries'
+		Fields: 'Overview,EpisodeTitle,ChannelName,ChannelId,SeriesId,SeriesName,SeasonId,IsSeries,DateCreated,StartDate,EndDate'
 	});
 
     const host = await getHost();

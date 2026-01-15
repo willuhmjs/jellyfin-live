@@ -71,7 +71,7 @@
                                         {group.name}
                                     </h2>
                                     <p class="text-xs text-gray-500 dark:text-gray-400">
-                                        Last recorded: {formatDate(new Date(group.lastRecorded))}
+                                        Last recorded: {group.lastRecorded ? formatDate(new Date(group.lastRecorded)) : 'Unknown Date'}
                                     </p>
                                 </div>
                             </div>
@@ -128,7 +128,7 @@
                                          </p>
                                     {/if}
                                     <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                                        Recorded on {formatDate(rec.DateCreated)} • {rec.ChannelName || 'Unknown Channel'}
+                                        Recorded on {formatDate(rec.DateCreated || rec.StartDate)} • {rec.ChannelName || 'Unknown Channel'}
                                     </p>
                                 </div>
                              </div>
