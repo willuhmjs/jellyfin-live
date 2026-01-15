@@ -2,7 +2,7 @@
     import { enhance } from '$app/forms';
     import { onMount } from 'svelte';
 
-	export let data;
+    export let data;
     export let form;
 
     let now = new Date();
@@ -22,16 +22,15 @@
 </script>
 
 <div class="p-6 space-y-8 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-200">
-	<h1 class="text-3xl font-bold">Dashboard</h1>
+    <h1 class="text-3xl font-bold">Dashboard</h1>
 
-	{#if data.error}
-		<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded dark:bg-red-900/30 dark:border-red-800 dark:text-red-200">
-			{data.error}
-		</div>
-	{/if}
+    {#if data.error}
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded dark:bg-red-900/30 dark:border-red-800 dark:text-red-200">
+            {data.error}
+        </div>
+    {/if}
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        <!-- Search Section -->
         <section class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
             <h2 class="text-xl font-semibold mb-4">Find Content</h2>
             <form method="POST" action="?/search" use:enhance class="flex gap-4 mb-4">
@@ -73,7 +72,6 @@
             {/if}
         </section>
 
-        <!-- Scheduled Recordings Section (Compact Vertical List) -->
         <section class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 h-[300px] flex flex-col">
              <h2 class="text-lg font-semibold mb-2 flex items-center justify-between">
                 <span>Scheduled Recordings</span>
@@ -83,8 +81,7 @@
                 <div class="overflow-y-auto pr-1 space-y-1 flex-grow scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
                      {#each data.scheduledRecordings as timer}
                         <div class="flex items-center gap-2 p-1.5 rounded hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors border border-transparent hover:border-gray-100 dark:hover:border-gray-700">
-                             <!-- Image (Tiny) -->
-                            <div class="flex-shrink-0 w-6 h-6 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
+                             <div class="flex-shrink-0 w-6 h-6 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
                                 {#if timer.ProgramId}
                                     <img
                                         src="{data.JELLYFIN_HOST}/Items/{timer.ProgramId}/Images/Primary"
@@ -108,8 +105,7 @@
                                 {/if}
                             </div>
                             
-                            <!-- Content -->
-                             <div class="flex-grow min-w-0 flex items-center justify-between gap-2">
+                            <div class="flex-grow min-w-0 flex items-center justify-between gap-2">
                                  <h4 class="font-medium text-xs text-gray-900 dark:text-gray-100 truncate" title={timer.EpisodeTitle || timer.Name}>
                                      {#if timer.SeriesName}
                                          <span class="font-bold">{timer.SeriesName}</span> -
@@ -136,14 +132,13 @@
         </section>
     </div>
 
-    <!-- Upcoming Premieres (Only if available) -->
     {#if data.premieres.length > 0}
-	<section>
-		<h2 class="text-2xl font-semibold mb-4 border-b pb-2 border-gray-200 dark:border-gray-700">Upcoming Premieres</h2>
-			<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-				{#each data.premieres as prog}
-					<div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col h-full">
-	                       <div class="relative w-full pt-[56.25%] bg-gray-100 dark:bg-gray-700">
+    <section>
+        <h2 class="text-2xl font-semibold mb-4 border-b pb-2 border-gray-200 dark:border-gray-700">Upcoming Premieres</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {#each data.premieres as prog}
+                    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col h-full">
+                           <div class="relative w-full pt-[56.25%] bg-gray-100 dark:bg-gray-700">
                              <img
                                 src="{data.JELLYFIN_HOST}/Items/{prog.Id}/Images/Primary"
                                 alt={prog.Name}
@@ -163,26 +158,30 @@
      </div>
     {/each}
    </div>
-	</section>
+    </section>
     {/if}
 
-    <!-- My Library Section (Grid) -->
     <section>
         <h2 class="text-2xl font-semibold mb-4 border-b pb-2 border-gray-200 dark:border-gray-700">My Library</h2>
         {#if data.monitoredSeries.length > 0}
             <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-6">
                 {#each data.monitoredSeries as series}
                     <a href="/dashboard/series/lookup?name={encodeURIComponent(series.name)}" class="block group relative">
-                         <!-- Cover Picture (Poster) -->
-                        <div class="w-full aspect-[2/3] bg-gray-200 dark:bg-gray-700 rounded-xl overflow-hidden shadow-lg group-hover:shadow-2xl group-hover:scale-105 transition-all duration-200 relative">
-                             {#if series.tvmazeImage || series.imageTag}
+                         <div class="w-full aspect-[2/3] bg-gray-200 dark:bg-gray-700 rounded-xl overflow-hidden shadow-lg group-hover:shadow-2xl group-hover:scale-105 transition-all duration-200 relative">
+                             {#if series.tvmazeImage}
                                 <img
-                                    src={series.tvmazeImage || `${data.JELLYFIN_HOST}/Items/${series.id}/Images/Primary?Tag=${series.imageTag}&MaxWidth=400`}
+                                    src={series.tvmazeImage}
+                                    alt={series.name}
+                                    class="w-full h-full object-cover"
+                                />
+                             {:else if series.id && series.imageTag}
+                                <img
+                                    src="{data.JELLYFIN_HOST}/Items/{series.id}/Images/Primary?Tag={series.imageTag}&MaxWidth=400"
                                     alt={series.name}
                                     class="w-full h-full object-cover"
                                     on:error={(e) => e.currentTarget.style.display='none'}
                                 />
-                            {:else}
+                             {:else}
                                 <div class="w-full h-full flex items-center justify-center text-gray-400">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -190,7 +189,6 @@
                                 </div>
                             {/if}
                             
-                             <!-- Status Badge Overlay -->
                              <div class="absolute top-2 right-2 flex flex-col gap-1 items-end">
                                 <span class="flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold shadow-sm
                                     {series.status === 'Recorded' ? 'bg-green-500 text-white' : 'bg-blue-500 text-white'}">
@@ -207,7 +205,6 @@
                              </div>
                         </div>
 
-                        <!-- Details -->
                         <div class="mt-2">
                             <h3 class="font-bold text-sm text-gray-900 dark:text-gray-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" title={series.name}>{series.name}</h3>
                         </div>

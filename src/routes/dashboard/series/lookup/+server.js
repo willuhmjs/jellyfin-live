@@ -21,8 +21,8 @@ export async function GET({ url, locals }) {
             try {
                 console.log(`TVMaze lookup failed for "${name}", searching Jellyfin...`);
                 const { user, token } = locals.user;
-                // Search for series specifically
-                const jResults = await jellyfin.getSeries(user.Id, token, name);
+                // Search for Series and Movies
+                const jResults = await jellyfin.searchItems(user.Id, token, name, ['Series', 'Movie']);
                 
                 // Find best match (exact name match first, then loosely)
                 let match = jResults.find(s => s.Name.toLowerCase() === name.toLowerCase());

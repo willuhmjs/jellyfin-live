@@ -1,5 +1,6 @@
 import * as tvmaze from '$lib/server/tvmaze';
 import * as jellyfin from '$lib/server/jellyfin';
+import * as db from '$lib/server/db';
 import { fail } from '@sveltejs/kit';
 
 export async function load({ params, locals }) {
@@ -25,6 +26,10 @@ export async function load({ params, locals }) {
         console.log(`Loading series details for ID: ${tvmazeId}`);
         show = await tvmaze.getShow(tvmazeId);
         console.log(`Fetched show: ${show ? show.name : 'null'}`);
+
+        if (show) {
+             tvmaze.manualCacheSearch(show.name, show);
+        }
     } catch (e) {
         console.warn('TVMaze fetch failed, trying Jellyfin fallback:', e);
         // Do not return error yet, try Jellyfin
@@ -38,6 +43,7 @@ export async function load({ params, locals }) {
              if (items && items.length > 0) {
                  const jShow = items[0];
                  jellyfinFallback = true;
+                 const isMovie = jShow.Type === 'Movie';
                  
                  // Construct "Lite" Show Object
                  show = {
@@ -70,9 +76,43 @@ export async function load({ params, locals }) {
                             }
                         }))
                      },
-                     isJellyfinFallback: true
+                     isJellyfinFallback: true,
+                     isMovie
                  };
-                 console.log(`Successfully fell back to Jellyfin series: ${show.name}`);
+
+                 // If it's a Movie, add itself as an episode
+                 if (isMovie) {
+                     show._embedded.episodes = [{
+                         id: jShow.Id,
+                         season: 1,
+                         number: 1,
+                         name: jShow.Name,
+                         airdate: jShow.PremiereDate ? jShow.PremiereDate.split('T')[0] : null,
+                         runtime: (jShow.RunTimeTicks ? Math.round(jShow.RunTimeTicks / 10000000 / 60) : 0),
+                         summary: jShow.Overview,
+                         airstamp: jShow.PremiereDate,
+                         jellyfinId: jShow.Id // It is its own item
+                     }];
+                 }
+
+                 console.log(`Successfully fell back to Jellyfin ${isMovie ? 'movie' : 'series'}: ${show.name}`);
+
+                 // Attempt to update image from TVMaze if we only have Jellyfin image
+                 if (!isMovie) {
+                     try {
+                         const results = await tvmaze.searchShows(show.name);
+                         const match = results.find(r => r.show.name.toLowerCase() === show.name.toLowerCase()) || results[0];
+                         if (match && match.show.image) {
+                             console.log(`Updating image from TVMaze for: ${show.name}`);
+                             show.image = {
+                                 ...show.image,
+                                 ...match.show.image
+                             };
+                         }
+                     } catch (err) {
+                         console.warn('Failed to update image from TVMaze:', err);
+                     }
+                 }
              }
          } catch (je) {
              console.error('Jellyfin fallback failed:', je);
@@ -92,8 +132,12 @@ export async function load({ params, locals }) {
     let guidePrograms = [];
     let scheduledTimers = [];
 
+    // Helper for name matching
+    const cleanName = (n) => n ? n.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+
     try {
         let jellyfinSeries;
+        const allSeriesTimers = await jellyfin.getSeriesTimers(token);
 
         if (jellyfinFallback) {
              jellyfinSeries = { Id: show.id, Name: show.name };
@@ -102,19 +146,52 @@ export async function load({ params, locals }) {
             console.log(`Searching Jellyfin for: ${show.name}`);
             const jellyfinSeriesResults = await jellyfin.getSeries(user.Id, token, show.name);
             
-            // Simple matching logic: Exact name match (case insensitive)
+            // Match using cleanName for better flexibility
             jellyfinSeries = jellyfinSeriesResults.find(s =>
-                s.Name.toLowerCase() === show.name.toLowerCase()
+                cleanName(s.Name) === cleanName(show.name)
             );
+
+            // If not found in library, check if it exists as a Series Timer
+            // This allows us to save the image for "Scheduled" shows that aren't in the library yet
+            if (!jellyfinSeries) {
+                const timer = allSeriesTimers.find(t => cleanName(t.Name) === cleanName(show.name));
+                if (timer) {
+                    console.log(`Found Series Timer for ${show.name}, using as Jellyfin Series fallback.`);
+                    jellyfinSeries = { Id: timer.SeriesId || timer.Id, Name: timer.Name };
+                    isMonitored = true;
+                }
+            }
+        }
+
+        // Always try to save the image if we have one, using the best available name
+        if (show && show.image && show.image.original) {
+            const saveName = jellyfinSeries ? jellyfinSeries.Name : show.name;
+            console.log(`[Series Page] Saving series image for ${saveName}`);
+            db.saveSeriesImage(saveName, show.image.original);
         }
 
         if (jellyfinSeries) {
             if (!jellyfinFallback) {
-                 console.log(`Found Jellyfin series: ${jellyfinSeries.Name} (${jellyfinSeries.Id})`);
+                 console.log(`Found Jellyfin series/timer: ${jellyfinSeries.Name} (${jellyfinSeries.Id})`);
             }
+            
+            // Explicitly cache the TVMaze result under the JELLYFIN series name
+            if (show) {
+                tvmaze.manualCacheSearch(jellyfinSeries.Name, show);
+            }
+
             jellyfinSeriesId = jellyfinSeries.Id;
-            // 3. Fetch Jellyfin Episodes
-            jellyfinEpisodes = await jellyfin.getEpisodes(user.Id, token, jellyfinSeries.Id);
+            
+            // 3. Fetch Jellyfin Episodes (if not a movie AND it's a real library item)
+            // If we only found it via timer (isMonitored=true but might not be in library), getEpisodes might return empty or fail?
+            // jellyfin.getEpisodes expects a SeriesId. If we have one, try it.
+            if (!show.isMovie && jellyfinSeries.Id) {
+                try {
+                    jellyfinEpisodes = await jellyfin.getEpisodes(user.Id, token, jellyfinSeries.Id);
+                } catch (err) {
+                    console.warn('Failed to fetch episodes (might be timer-only):', err);
+                }
+            }
             
             // Populate show._embedded.episodes if fallback
             if (jellyfinFallback && jellyfinEpisodes.length > 0) {
@@ -130,20 +207,15 @@ export async function load({ params, locals }) {
                 }));
             }
 
-            // 4. Check for Series Timer
-            const allSeriesTimers = await jellyfin.getSeriesTimers(token);
-            const timer = allSeriesTimers.find(t => t.Name === show.name || (t.SeriesId && t.SeriesId === jellyfinSeries.Id));
-            if (timer) {
-                isMonitored = true;
+            // 4. Check for Series Timer (to set isMonitored if not already set)
+            if (!isMonitored) {
+                const timer = allSeriesTimers.find(t => t.Name === show.name || (t.SeriesId && t.SeriesId === jellyfinSeries.Id));
+                if (timer) {
+                    isMonitored = true;
+                }
             }
         } else {
-            console.log('Series not found in Jellyfin library.');
-            // If not in library, we might still have a Series Timer
-            const allSeriesTimers = await jellyfin.getSeriesTimers(token);
-            const timer = allSeriesTimers.find(t => t.Name === show.name);
-            if (timer) {
-                isMonitored = true;
-            }
+            console.log('Series not found in Jellyfin library or timers.');
         }
 
         // Fetch guide data and timers concurrently
@@ -203,8 +275,7 @@ export async function load({ params, locals }) {
     const seasons = {};
     const matchedTimerIds = new Set();
     
-    // Helper for name matching
-    const cleanName = (n) => n ? n.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+    // matchName helper reusing cleanName
     const matchName = (target, ...candidates) => {
         const cleanTarget = cleanName(target);
         if (!cleanTarget) return false;

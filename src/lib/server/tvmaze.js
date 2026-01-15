@@ -74,5 +74,59 @@ export async function searchShows(query) {
 }
 
 export async function getShow(id) {
-    return fetchFromTvMaze(`/shows/${id}?embed=episodes`);
+    const show = await fetchFromTvMaze(`/shows/${id}?embed=episodes`);
+    
+    if (show && show.name) {
+        try {
+            // Synthetically cache the search result for this show's name
+            // This helps the Dashboard find the image without hitting the search API
+            // if the user has already visited the series page.
+            const searchKey = `/search/shows?q=${encodeURIComponent(show.name)}`;
+            const searchResult = [{
+                score: 10,
+                show: {
+                    id: show.id,
+                    name: show.name,
+                    image: show.image,
+                    summary: show.summary,
+                    genres: show.genres,
+                    status: show.status,
+                    premiered: show.premiered
+                }
+            }];
+
+            setCacheStmt.run(searchKey, JSON.stringify(searchResult), Date.now());
+            console.log(`[TVMaze] Synthetically cached search result for: ${show.name}`);
+        } catch (e) {
+            console.warn('[TVMaze] Failed to update synthetic search cache:', e);
+        }
+    }
+
+    return show;
+}
+
+export function manualCacheSearch(query, show) {
+    if (!query || !show) return;
+    
+    try {
+        const cleanQuery = query.trim();
+        const searchKey = `/search/shows?q=${encodeURIComponent(cleanQuery)}`;
+        const searchResult = [{
+            score: 10,
+            show: {
+                id: show.id,
+                name: show.name,
+                image: show.image,
+                summary: show.summary,
+                genres: show.genres,
+                status: show.status,
+                premiered: show.premiered
+            }
+        }];
+
+        setCacheStmt.run(searchKey, JSON.stringify(searchResult), Date.now());
+        console.log(`[TVMaze] Manually cached search result for query "${query}" -> ${show.name}`);
+    } catch (e) {
+        console.warn('[TVMaze] Failed to manual cache:', e);
+    }
 }

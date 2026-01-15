@@ -230,7 +230,7 @@ export async function getRecordings(userId, token) {
 		SortBy: 'DateCreated',
 		SortOrder: 'Descending',
 		EnableTotalRecordCount: 'false',
-		Fields: 'Overview,EpisodeTitle,ChannelName,ChannelId,SeriesId,SeriesName,SeasonId,IsSeries,DateCreated,StartDate,EndDate'
+		Fields: 'Overview,EpisodeTitle,ChannelName,ChannelId,SeriesId,SeriesName,SeasonId,IsSeries,DateCreated,StartDate,EndDate,ImageTags'
 	});
 
     const host = await getHost();
@@ -257,12 +257,24 @@ export async function getRecordings(userId, token) {
  * @returns {Promise<any[]>}
  */
 export async function getSeries(userId, token, searchTerm = null) {
+    return searchItems(userId, token, searchTerm, ['Series']);
+}
+
+/**
+ * Search for Items (Series, Movie, etc)
+ * @param {string} userId
+ * @param {string} token
+ * @param {string} searchTerm
+ * @param {string[]} types
+ * @returns {Promise<any[]>}
+ */
+export async function searchItems(userId, token, searchTerm, types = ['Series']) {
     const host = await getHost();
     const params = new URLSearchParams({
         UserId: userId,
         Recursive: 'true',
-        IncludeItemTypes: 'Series',
-        Fields: 'Overview,PrimaryImageAspectRatio,ProviderIds',
+        IncludeItemTypes: types.join(','),
+        Fields: 'Overview,PrimaryImageAspectRatio,ProviderIds,Type',
         SortBy: 'SortName',
         SortOrder: 'Ascending'
     });
@@ -279,7 +291,7 @@ export async function getSeries(userId, token, searchTerm = null) {
     });
 
     if (!res.ok) {
-        throw new Error('Failed to fetch series');
+        throw new Error('Failed to search items');
     }
 
     const data = await res.json();
@@ -400,7 +412,7 @@ export async function scheduleRecording(token, programId, isSeries = false, user
 export async function getTimers(token) {
     const host = await getHost();
     const params = new URLSearchParams({
-        Fields: 'SeriesId,ProgramId,EpisodeTitle,Name,Overview,SeasonId,ParentIndexNumber,IndexNumber,StartDate,EndDate,ChannelName,Status,SeriesPrimaryImageTag,SeriesName,PremiereDate'
+        Fields: 'SeriesId,ProgramId,EpisodeTitle,Name,Overview,SeasonId,ParentIndexNumber,IndexNumber,StartDate,EndDate,ChannelName,Status,SeriesPrimaryImageTag,SeriesName,PremiereDate,ImageTags'
     });
 
 	const res = await fetch(`${host}/LiveTv/Timers?${params.toString()}`, {
