@@ -76,7 +76,7 @@ export async function load({ params, locals }) {
 
         // Fetch guide data and timers concurrently
         const [programsResult, timersResult] = await Promise.allSettled([
-            jellyfin.getPrograms(user.Id, token, 100, show.name),
+            jellyfin.getPrograms(user.Id, token, 500, show.name),
             jellyfin.getTimers(token)
         ]);
         
@@ -170,16 +170,30 @@ export async function load({ params, locals }) {
                 return matchName(ep.name, je.Name, je.EpisodeTitle);
             });
             
-            const airdate = ep.airdate ? new Date(ep.airdate) : null;
-            const isUpcoming = airdate && airdate > new Date();
+            let isUpcoming = false;
+            if (ep.airstamp) {
+                isUpcoming = new Date(ep.airstamp) > new Date();
+            } else if (ep.airdate) {
+                const now = new Date();
+                const todayStr = now.toISOString().split('T')[0];
+                isUpcoming = ep.airdate >= todayStr;
+            }
 
             // Check for guide match
             const guideMatch = guidePrograms.find(p => {
+                // 1. Strongest Match: SeriesId check
+                if (jellyfinSeriesId && p.SeriesId && p.SeriesId !== jellyfinSeriesId) return false;
+
+                // 2. Match by S/E
                 // Use loose equality for season/episode numbers to handle string/number mismatch
                 if (p.ParentIndexNumber == ep.season && p.IndexNumber == ep.number) return true;
+                
+                // 3. Match by Name
                 if (matchName(ep.name, p.Name, p.EpisodeTitle)) return true;
-                // Match by PremiereDate (Original Air Date)
+                
+                // 4. Match by PremiereDate (Original Air Date)
                 if (ep.airdate && p.PremiereDate && p.PremiereDate.startsWith(ep.airdate)) return true;
+                
                 return false;
             });
 
@@ -204,7 +218,8 @@ export async function load({ params, locals }) {
                 owned: isOwned,
                 upcoming: isUpcoming,
                 guideProgramId: guideMatch ? guideMatch.Id : null,
-                isRecording
+                isRecording,
+                timerId: recordingTimer ? recordingTimer.Id : null
             });
         }
     }
@@ -278,6 +293,27 @@ export const actions = {
         } catch (e) {
             console.error('Failed to record episode:', e);
             return fail(500, { message: 'Failed to schedule recording' });
+        }
+    },
+
+    cancelRecording: async ({ request, locals }) => {
+        if (!locals.user) {
+            return fail(401, { message: 'Unauthorized' });
+        }
+
+        const data = await request.formData();
+        const timerId = data.get('timerId');
+
+        if (!timerId) {
+            return fail(400, { message: 'Timer ID required' });
+        }
+
+        try {
+            await jellyfin.cancelTimer(locals.user.token, timerId);
+            return { success: true, message: 'Recording cancelled' };
+        } catch (e) {
+            console.error('Failed to cancel recording:', e);
+            return fail(500, { message: 'Failed to cancel recording' });
         }
     }
 };

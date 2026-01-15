@@ -96,7 +96,8 @@ export async function getPrograms(userId, token, limit = 100, searchTerm = null)
 		Limit: limit.toString(),
 		EnableTotalRecordCount: 'false',
 		ImageTypeLimit: '1',
-		EnableImageTypes: 'Primary'
+		EnableImageTypes: 'Primary',
+		      Fields: 'SeriesId,ProgramId,EpisodeTitle,Name,Overview,SeasonId,ParentIndexNumber,IndexNumber,StartDate,EndDate,ChannelName,PremiereDate'
 	});
 
     if (searchTerm) {
@@ -451,7 +452,7 @@ export async function getSeriesTimers(token) {
  * @param {string} recordingId
  */
 export async function deleteRecording(token, recordingId) {
-    // NOTE: This usually deletes the recording FILE. 
+    // NOTE: This usually deletes the recording FILE.
     // To cancel a TIMER, you would use DELETE /LiveTv/Timers/{Id}
     // But the requirements said "deleteRecording", and listed /LiveTv/Recordings/${recordingId}
     
@@ -468,5 +469,27 @@ export async function deleteRecording(token, recordingId) {
 		throw new Error('Failed to delete recording');
 	}
     
+    return true;
+}
+
+/**
+ * Cancel a timer
+ * @param {string} token
+ * @param {string} timerId
+ */
+export async function cancelTimer(token, timerId) {
+    const host = await getHost();
+    const res = await fetch(`${host}/LiveTv/Timers/${timerId}`, {
+        method: 'DELETE',
+        headers: {
+            ...headers,
+            'X-Emby-Token': token
+        }
+    });
+
+    if (!res.ok) {
+        throw new Error('Failed to cancel timer');
+    }
+
     return true;
 }

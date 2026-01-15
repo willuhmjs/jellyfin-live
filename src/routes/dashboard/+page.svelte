@@ -112,7 +112,7 @@
                              <div class="flex-grow min-w-0 flex items-center justify-between gap-2">
                                  <h4 class="font-medium text-xs text-gray-900 dark:text-gray-100 truncate" title={timer.EpisodeTitle || timer.Name}>
                                      {#if timer.SeriesName}
-                                         {timer.SeriesName} -
+                                         <span class="font-bold">{timer.SeriesName}</span> -
                                      {/if}
                                      {timer.EpisodeTitle || timer.Name}
                                  </h4>
@@ -136,74 +136,16 @@
         </section>
     </div>
 
-<!-- My Library Section (Jellyseerr Style - Horizontal Scroll) -->
-<section>
-    <h2 class="text-2xl font-semibold mb-4 border-b pb-2 border-gray-200 dark:border-gray-700">My Library</h2>
-    {#if data.monitoredSeries.length > 0}
-        <div class="flex overflow-x-auto gap-4 pb-6 snap-x scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
-            {#each data.monitoredSeries as series}
-                <a href="/dashboard/series/lookup?name={encodeURIComponent(series.name)}" class="flex-shrink-0 w-32 md:w-40 snap-start group relative">
-                     <!-- Cover Picture (Poster) -->
-                     <!-- Matched style to series page: rounded-xl shadow-lg -->
-                    <div class="w-full aspect-[2/3] bg-gray-200 dark:bg-gray-700 rounded-xl overflow-hidden shadow-lg group-hover:shadow-2xl group-hover:scale-105 transition-all duration-200 relative">
-                         {#if series.tvmazeImage || series.imageTag}
-                            <img
-                                src={series.tvmazeImage || `${data.JELLYFIN_HOST}/Items/${series.id}/Images/Primary?Tag=${series.imageTag}&MaxWidth=400`}
-                                alt={series.name}
-                                class="w-full h-full object-cover"
-                                on:error={(e) => e.currentTarget.style.display='none'}
-                            />
-                        {:else}
-                            <div class="w-full h-full flex items-center justify-center text-gray-400">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                            </div>
-                        {/if}
-                        
-                         <!-- Status Badge Overlay -->
-                         <div class="absolute top-2 right-2 flex flex-col gap-1 items-end">
-                            <span class="flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold shadow-sm
-                                {series.status === 'Recorded' ? 'bg-green-500 text-white' : 'bg-blue-500 text-white'}">
-                                {#if series.status === 'Recorded'}
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                                    </svg>
-                                {:else}
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
-                                    </svg>
-                                {/if}
-                            </span>
-                            {#if series.isMovie}
-                                <span class="px-1.5 py-0.5 bg-gray-900/80 text-white text-[9px] font-bold rounded uppercase tracking-wider backdrop-blur-sm">
-                                    Movie
-                                </span>
-                            {/if}
-                         </div>
-                    </div>
-
-                        <!-- Details -->
-                        <div class="mt-2">
-                            <h3 class="font-bold text-sm text-gray-900 dark:text-gray-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" title={series.name}>{series.name}</h3>
-                        </div>
-                    </a>
-                {/each}
-            </div>
-        {:else}
-            <p class="text-gray-500 italic">No monitored series found.</p>
-        {/if}
-    </section>
-
+    <!-- Upcoming Premieres (Only if available) -->
+    {#if data.premieres.length > 0}
 	<section>
 		<h2 class="text-2xl font-semibold mb-4 border-b pb-2 border-gray-200 dark:border-gray-700">Upcoming Premieres</h2>
-		{#if data.premieres.length > 0}
 			<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
 				{#each data.premieres as prog}
 					<div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col h-full">
 	                       <div class="relative w-full pt-[56.25%] bg-gray-100 dark:bg-gray-700">
-                             <img 
-                                src="{data.JELLYFIN_HOST}/Items/{prog.Id}/Images/Primary" 
+                             <img
+                                src="{data.JELLYFIN_HOST}/Items/{prog.Id}/Images/Primary"
                                 alt={prog.Name}
                                 class="absolute top-0 left-0 w-full h-full object-cover"
                                 loading="lazy"
@@ -221,8 +163,59 @@
      </div>
     {/each}
    </div>
-  {:else}
-   <p class="text-gray-500 italic dark:text-gray-400">No upcoming premieres found.</p>
-  {/if}
 	</section>
+    {/if}
+
+    <!-- My Library Section (Grid) -->
+    <section>
+        <h2 class="text-2xl font-semibold mb-4 border-b pb-2 border-gray-200 dark:border-gray-700">My Library</h2>
+        {#if data.monitoredSeries.length > 0}
+            <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-6">
+                {#each data.monitoredSeries as series}
+                    <a href="/dashboard/series/lookup?name={encodeURIComponent(series.name)}" class="block group relative">
+                         <!-- Cover Picture (Poster) -->
+                        <div class="w-full aspect-[2/3] bg-gray-200 dark:bg-gray-700 rounded-xl overflow-hidden shadow-lg group-hover:shadow-2xl group-hover:scale-105 transition-all duration-200 relative">
+                             {#if series.tvmazeImage || series.imageTag}
+                                <img
+                                    src={series.tvmazeImage || `${data.JELLYFIN_HOST}/Items/${series.id}/Images/Primary?Tag=${series.imageTag}&MaxWidth=400`}
+                                    alt={series.name}
+                                    class="w-full h-full object-cover"
+                                    on:error={(e) => e.currentTarget.style.display='none'}
+                                />
+                            {:else}
+                                <div class="w-full h-full flex items-center justify-center text-gray-400">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                            {/if}
+                            
+                             <!-- Status Badge Overlay -->
+                             <div class="absolute top-2 right-2 flex flex-col gap-1 items-end">
+                                <span class="flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold shadow-sm
+                                    {series.status === 'Recorded' ? 'bg-green-500 text-white' : 'bg-blue-500 text-white'}">
+                                    {#if series.status === 'Recorded'}
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                        </svg>
+                                    {:else}
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+                                        </svg>
+                                    {/if}
+                                </span>
+                             </div>
+                        </div>
+
+                        <!-- Details -->
+                        <div class="mt-2">
+                            <h3 class="font-bold text-sm text-gray-900 dark:text-gray-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" title={series.name}>{series.name}</h3>
+                        </div>
+                    </a>
+                {/each}
+            </div>
+        {:else}
+            <p class="text-gray-500 italic">No monitored series found.</p>
+        {/if}
+    </section>
 </div>

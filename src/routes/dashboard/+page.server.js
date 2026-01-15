@@ -23,8 +23,8 @@ export async function load({ cookies }) {
 		// Filter for premieres
 		const premieres = programs.filter(p => p.IsPremiere);
 
-		      // Enrich timers with missing EpisodeTitle
-		      const timersToEnrich = (timers || []).filter(t => !t.EpisodeTitle && t.ProgramId);
+		      // Enrich timers with missing EpisodeTitle or SeriesName (if it looks like a series)
+		      const timersToEnrich = (timers || []).filter(t => (!t.EpisodeTitle || (t.SeriesId && !t.SeriesName)) && t.ProgramId);
 		      if (timersToEnrich.length > 0) {
 		          const programIds = [...new Set(timersToEnrich.map(t => t.ProgramId))];
 		          try {

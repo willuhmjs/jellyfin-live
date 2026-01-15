@@ -244,12 +244,15 @@
                                                 Library
                                             </span>
                                         {:else if ep.isRecording}
-                                            <span class="px-3 py-1 bg-red-900/30 text-red-400 rounded-full text-xs font-medium border border-red-900/50 flex items-center gap-1">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 9a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1v-4a1 1 0 00-1-1H8z" clip-rule="evenodd" />
-                                                </svg>
-                                                Recording
-                                            </span>
+                                            <form method="POST" action="?/cancelRecording" use:enhance>
+                                                <input type="hidden" name="timerId" value={ep.timerId} />
+                                                <button class="px-3 py-1 bg-red-900/30 hover:bg-red-900/50 text-red-400 rounded-full text-xs font-medium border border-red-900/50 flex items-center gap-1 transition-colors">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 9a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1v-4a1 1 0 00-1-1H8z" clip-rule="evenodd" />
+                                                    </svg>
+                                                    Cancel Recording
+                                                </button>
+                                            </form>
                                         {:else if ep.guideProgramId}
                                              <form method="POST" action="?/recordEpisode" use:enhance>
                                                 <input type="hidden" name="programId" value={ep.guideProgramId} />
@@ -261,9 +264,12 @@
                                                 </button>
                                              </form>
                                         {:else if ep.upcoming}
-                                            <span class="px-3 py-1 bg-blue-900/30 text-blue-400 rounded-full text-xs font-medium border border-blue-900/50">
-                                                Upcoming
-                                            </span>
+                                            <button disabled class="px-3 py-1 bg-gray-700 text-gray-400 rounded-full text-xs font-medium border border-gray-600 cursor-not-allowed flex items-center gap-1" title="Airing soon but not yet in guide">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 9a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1v-4a1 1 0 00-1-1H8z" clip-rule="evenodd" />
+                                                </svg>
+                                                Record
+                                            </button>
                                         {:else}
                                             <span class="px-3 py-1 bg-gray-800 text-gray-500 rounded-full text-xs font-medium border border-gray-700">
                                                 Missing
