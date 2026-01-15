@@ -161,7 +161,7 @@ export async function getItems(userId, token, ids) {
     const host = await getHost();
     const params = new URLSearchParams({
         Ids: ids.join(','),
-        Fields: 'EpisodeTitle,Overview,SeriesName,PremiereDate'
+        Fields: 'EpisodeTitle,Overview,SeriesName,PremiereDate,PrimaryImageAspectRatio,Genres,Studios,OfficialRating,ProviderIds,DateCreated,CommunityRating,Status,People,BackdropImageTags,ProductionLocations'
     });
 
     const res = await fetch(`${host}/Users/${userId}/Items?${params.toString()}`, {
@@ -193,7 +193,7 @@ export async function getEpisodes(userId, token, seriesId, seasonId = null) {
     const params = new URLSearchParams({
         UserId: userId,
         SeriesId: seriesId,
-        Fields: 'Overview,PrimaryImageAspectRatio',
+        Fields: 'Overview,PrimaryImageAspectRatio,PremiereDate,RunTimeTicks,ParentIndexNumber,IndexNumber,MediaSources,OfficialRating',
         SortBy: 'IndexNumber',
         SortOrder: 'Ascending'
     });

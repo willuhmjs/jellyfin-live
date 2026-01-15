@@ -56,6 +56,8 @@
                             {#if show.premiered}<span>{show.premiered.split('-')[0]}</span>{/if}
                             {#if show.network}<span>• {show.network.name}</span>{/if}
                             {#if show.status}<span>• {show.status}</span>{/if}
+                            {#if show.rating?.average}<span>• ★ {show.rating.average}</span>{/if}
+                            {#if show.contentRating}<span>• {show.contentRating}</span>{/if}
                         </div>
                     </div>
                     
@@ -109,6 +111,29 @@
                 {#if show.summary}
                     <div class="prose prose-invert max-w-none text-gray-300" >
                         {@html show.summary}
+                    </div>
+                {/if}
+
+                {#if show._embedded?.cast && show._embedded.cast.length > 0}
+                    <div class="mt-6">
+                        <h3 class="text-lg font-semibold text-white mb-3">Cast</h3>
+                        <div class="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
+                            {#each show._embedded.cast as castMember}
+                                <div class="flex-shrink-0 w-24">
+                                    <div class="w-24 h-24 rounded-full overflow-hidden bg-gray-800 mb-2">
+                                        {#if castMember.person.image?.medium}
+                                            <img src={castMember.person.image.medium} alt={castMember.person.name} class="w-full h-full object-cover" />
+                                        {:else}
+                                            <div class="w-full h-full flex items-center justify-center text-gray-500 text-xs text-center p-1">No Image</div>
+                                        {/if}
+                                    </div>
+                                    <div class="text-xs text-center">
+                                        <div class="font-medium text-white truncate" title={castMember.person.name}>{castMember.person.name}</div>
+                                        <div class="text-gray-500 truncate" title={castMember.character?.name}>{castMember.character?.name}</div>
+                                    </div>
+                                </div>
+                            {/each}
+                        </div>
                     </div>
                 {/if}
                 
@@ -240,9 +265,29 @@
 
                                     <div class="flex-shrink-0">
                                         {#if ep.owned}
-                                            <span class="px-3 py-1 bg-green-900/30 text-green-400 rounded-full text-xs font-medium border border-green-900/50">
-                                                Library
-                                            </span>
+                                            <div class="flex items-center gap-2">
+                                                <a
+                                                    href="{data.JELLYFIN_HOST}/web/index.html#!/details?id={ep.jellyfinId}"
+                                                    target="_blank"
+                                                    class="px-3 py-1 bg-green-900/30 hover:bg-green-900/50 text-green-400 rounded-full text-xs font-medium border border-green-900/50 flex items-center gap-1 transition-colors"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                                                        <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
+                                                    </svg>
+                                                    View on Jellyfin
+                                                </a>
+                                                <button
+                                                    disabled
+                                                    class="px-3 py-1 bg-blue-900/30 text-blue-400 rounded-full text-xs font-medium border border-blue-900/50 opacity-50 cursor-not-allowed flex items-center gap-1"
+                                                    title="Coming soon"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd" />
+                                                    </svg>
+                                                    Trim Commercials
+                                                </button>
+                                            </div>
                                         {:else if ep.isRecording}
                                             <form method="POST" action="?/cancelRecording" use:enhance>
                                                 <input type="hidden" name="timerId" value={ep.timerId} />

@@ -1,6 +1,6 @@
 import * as tvmaze from '$lib/server/tvmaze';
 import * as jellyfin from '$lib/server/jellyfin';
-import { error, fail } from '@sveltejs/kit';
+import { fail } from '@sveltejs/kit';
 
 export async function load({ params, locals }) {
     if (!locals.user) {
@@ -15,49 +15,121 @@ export async function load({ params, locals }) {
     const { user, token } = locals.user;
     const tvmazeId = params.id;
 
+    const JELLYFIN_HOST = await jellyfin.getHost();
+    
     // 1. Fetch TVMaze Data
     let show;
+    let jellyfinFallback = false;
+
     try {
         console.log(`Loading series details for ID: ${tvmazeId}`);
         show = await tvmaze.getShow(tvmazeId);
         console.log(`Fetched show: ${show ? show.name : 'null'}`);
     } catch (e) {
-        console.error('Failed to fetch from TVMaze:', e);
-        return {
-            show: null,
-            error: `Failed to load show details: ${e.message}`
-        };
+        console.warn('TVMaze fetch failed, trying Jellyfin fallback:', e);
+        // Do not return error yet, try Jellyfin
+    }
+
+    if (!show) {
+         console.log(`TVMaze failed or returned null. Attempting Jellyfin fallback for ID: ${tvmazeId}`);
+         try {
+             // Treat tvmazeId as potential Jellyfin ID
+             const items = await jellyfin.getItems(user.Id, token, [tvmazeId]);
+             if (items && items.length > 0) {
+                 const jShow = items[0];
+                 jellyfinFallback = true;
+                 
+                 // Construct "Lite" Show Object
+                 show = {
+                     id: jShow.Id,
+                     name: jShow.Name,
+                     summary: jShow.Overview,
+                     genres: jShow.Genres || [],
+                     premiered: jShow.PremiereDate ? jShow.PremiereDate.split('T')[0] : null,
+                     rating: { average: jShow.CommunityRating },
+                     contentRating: jShow.OfficialRating,
+                     image: {
+                         original: `${JELLYFIN_HOST}/Items/${jShow.Id}/Images/Primary`,
+                         background: (jShow.BackdropImageTags && jShow.BackdropImageTags.length > 0)
+                            ? `${JELLYFIN_HOST}/Items/${jShow.Id}/Images/Backdrop/0`
+                            : null
+                     },
+                     network: jShow.Studios && jShow.Studios.length > 0 ? { name: jShow.Studios[0].Name } : null,
+                     status: jShow.Status || 'Unknown',
+                     _embedded: {
+                        episodes: [],
+                        cast: (jShow.People || []).map(p => ({
+                            person: {
+                                name: p.Name,
+                                image: p.PrimaryImageTag ? {
+                                    medium: `${JELLYFIN_HOST}/Items/${p.Id}/Images/Primary`
+                                } : null
+                            },
+                            character: {
+                                name: p.Role || p.Type
+                            }
+                        }))
+                     },
+                     isJellyfinFallback: true
+                 };
+                 console.log(`Successfully fell back to Jellyfin series: ${show.name}`);
+             }
+         } catch (je) {
+             console.error('Jellyfin fallback failed:', je);
+         }
     }
 
     if (!show) {
         return {
             show: null,
-            error: 'Show not found in TVMaze.'
+            error: 'Show not found in TVMaze or Jellyfin.'
         };
     }
 
     let jellyfinEpisodes = [];
     let isMonitored = false;
-    let jellyfinSeriesId = null;
+    let jellyfinSeriesId = jellyfinFallback ? show.id : null;
     let guidePrograms = [];
     let scheduledTimers = [];
 
     try {
-        // 2. Search Jellyfin for Series
-        console.log(`Searching Jellyfin for: ${show.name}`);
-        const jellyfinSeriesResults = await jellyfin.getSeries(user.Id, token, show.name);
-        
-        // Simple matching logic: Exact name match (case insensitive)
-        const jellyfinSeries = jellyfinSeriesResults.find(s =>
-            s.Name.toLowerCase() === show.name.toLowerCase()
-        );
+        let jellyfinSeries;
+
+        if (jellyfinFallback) {
+             jellyfinSeries = { Id: show.id, Name: show.name };
+        } else {
+            // 2. Search Jellyfin for Series (only if not fallback)
+            console.log(`Searching Jellyfin for: ${show.name}`);
+            const jellyfinSeriesResults = await jellyfin.getSeries(user.Id, token, show.name);
+            
+            // Simple matching logic: Exact name match (case insensitive)
+            jellyfinSeries = jellyfinSeriesResults.find(s =>
+                s.Name.toLowerCase() === show.name.toLowerCase()
+            );
+        }
 
         if (jellyfinSeries) {
-            console.log(`Found Jellyfin series: ${jellyfinSeries.Name} (${jellyfinSeries.Id})`);
+            if (!jellyfinFallback) {
+                 console.log(`Found Jellyfin series: ${jellyfinSeries.Name} (${jellyfinSeries.Id})`);
+            }
             jellyfinSeriesId = jellyfinSeries.Id;
             // 3. Fetch Jellyfin Episodes
             jellyfinEpisodes = await jellyfin.getEpisodes(user.Id, token, jellyfinSeries.Id);
             
+            // Populate show._embedded.episodes if fallback
+            if (jellyfinFallback && jellyfinEpisodes.length > 0) {
+                show._embedded.episodes = jellyfinEpisodes.map(ep => ({
+                    id: ep.Id,
+                    season: ep.ParentIndexNumber || 1,
+                    number: ep.IndexNumber || 0,
+                    name: ep.Name,
+                    airdate: ep.PremiereDate ? ep.PremiereDate.split('T')[0] : null,
+                    runtime: (ep.RunTimeTicks ? Math.round(ep.RunTimeTicks / 10000000 / 60) : 0),
+                    summary: ep.Overview,
+                    airstamp: ep.PremiereDate
+                }));
+            }
+
             // 4. Check for Series Timer
             const allSeriesTimers = await jellyfin.getSeriesTimers(token);
             const timer = allSeriesTimers.find(t => t.Name === show.name || (t.SeriesId && t.SeriesId === jellyfinSeries.Id));
@@ -127,8 +199,6 @@ export async function load({ params, locals }) {
         // We continue without Jellyfin data so the user can still see show info
     }
 
-    const JELLYFIN_HOST = await jellyfin.getHost();
-
     // 5. Merge Data
     const seasons = {};
     const matchedTimerIds = new Set();
@@ -159,7 +229,7 @@ export async function load({ params, locals }) {
                 seasons[seasonNum] = [];
             }
 
-            const isOwned = jellyfinEpisodes.some(je => {
+            const jellyfinEpisode = jellyfinEpisodes.find(je => {
                 const matchIndex = je.ParentIndexNumber == ep.season &&
                                  je.IndexNumber == ep.number;
                 
@@ -169,6 +239,8 @@ export async function load({ params, locals }) {
                 // Check Name and EpisodeTitle (if available)
                 return matchName(ep.name, je.Name, je.EpisodeTitle);
             });
+
+            const isOwned = !!jellyfinEpisode;
             
             let isUpcoming = false;
             if (ep.airstamp) {
@@ -216,6 +288,7 @@ export async function load({ params, locals }) {
             seasons[seasonNum].push({
                 ...ep,
                 owned: isOwned,
+                jellyfinId: jellyfinEpisode ? jellyfinEpisode.Id : null,
                 upcoming: isUpcoming,
                 guideProgramId: guideMatch ? guideMatch.Id : null,
                 isRecording,
