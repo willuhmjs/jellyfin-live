@@ -130,8 +130,25 @@
                     <h2 class="text-2xl font-bold border-b border-gray-800 pb-2">Scheduled Recordings</h2>
                     <div class="bg-gray-900/50 rounded-xl overflow-hidden border border-gray-800 divide-y divide-gray-800">
                         {#each data.unmappedRecordings as timer}
-                            <div class="px-6 py-4 flex items-center justify-between gap-4">
-                                <div>
+                            <div class="px-6 py-4 flex items-center gap-4">
+                                <div class="flex-shrink-0 w-20 aspect-video bg-gray-800 rounded overflow-hidden hidden sm:block shadow-sm">
+                                    {#if timer.ProgramId}
+                                        <img
+                                            src="{data.JELLYFIN_HOST}/Items/{timer.ProgramId}/Images/Primary"
+                                            alt={timer.Name}
+                                            class="w-full h-full object-cover"
+                                            on:error={(e) => e.currentTarget.style.display='none'}
+                                        />
+                                     {:else if timer.SeriesId}
+                                        <img
+                                            src="{data.JELLYFIN_HOST}/Items/{timer.SeriesId}/Images/Primary?{timer.SeriesPrimaryImageTag ? `Tag=${timer.SeriesPrimaryImageTag}&` : ''}MaxWidth=200"
+                                            alt={timer.Name}
+                                            class="w-full h-full object-cover"
+                                            on:error={(e) => e.currentTarget.style.display='none'}
+                                        />
+                                    {/if}
+                                </div>
+                                <div class="flex-grow">
                                     <h4 class="font-medium text-white">{timer.EpisodeTitle || timer.Name || 'Unknown Episode'}</h4>
                                     <div class="text-xs text-gray-500 mt-1 flex flex-wrap gap-2">
                                         {#if timer.StartDate}
@@ -166,6 +183,7 @@
             {#each Object.entries(seasons).reverse() as [seasonNum, episodes]}
                 {@const ownedCount = episodes.filter(e => e.owned).length}
                 {@const hasUpcoming = episodes.some(e => e.guideProgramId)}
+                {@const hasRecording = episodes.some(e => e.isRecording)}
                 <div class="bg-gray-900/50 rounded-xl overflow-hidden border border-gray-800">
                     <button
                         class="w-full px-6 py-4 bg-gray-800/50 flex justify-between items-center hover:bg-gray-800 transition-colors text-left"
@@ -186,7 +204,16 @@
                                 </span>
                             {/if}
                         </div>
-                        <span class="text-sm text-gray-500">{ownedCount} / {episodes.length} Episodes</span>
+                        <div class="flex items-center gap-3">
+                            {#if hasRecording}
+                                <span class="text-red-500 animate-pulse" title="Recording Scheduled">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 9a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1v-4a1 1 0 00-1-1H8z" clip-rule="evenodd" />
+                                    </svg>
+                                </span>
+                            {/if}
+                            <span class="text-sm text-gray-500">{ownedCount} / {episodes.length} Episodes</span>
+                        </div>
                     </button>
                     
                     {#if expandedSeasons[seasonNum]}

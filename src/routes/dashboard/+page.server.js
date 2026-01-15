@@ -44,6 +44,13 @@ export async function load({ cookies }) {
 		                                 if (timer.Name === timer.SeriesName && item.Name && item.Name !== timer.SeriesName) {
 		                                     timer.Name = item.Name;
 		                                 }
+		                                 
+		                                 if (!timer.SeriesName && item.SeriesName) {
+		                                     timer.SeriesName = item.SeriesName;
+		                                 }
+		                                 if (!timer.SeriesId && item.SeriesId) {
+		                                     timer.SeriesId = item.SeriesId;
+		                                 }
 		                            });
 		                        }
 		                    });

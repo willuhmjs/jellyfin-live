@@ -106,6 +106,13 @@ export async function load({ params, locals }) {
                                  if (t.Name === t.SeriesName && item.Name && item.Name !== t.SeriesName) {
                                      t.Name = item.Name;
                                  }
+                                 
+                                 if (!t.SeriesName && item.SeriesName) {
+                                     t.SeriesName = item.SeriesName;
+                                 }
+                                 if (!t.SeriesId && item.SeriesId) {
+                                     t.SeriesId = item.SeriesId;
+                                 }
                              });
                          }
                      });
@@ -119,6 +126,8 @@ export async function load({ params, locals }) {
         console.error('Error fetching Jellyfin data (continuing anyway):', e);
         // We continue without Jellyfin data so the user can still see show info
     }
+
+    const JELLYFIN_HOST = await jellyfin.getHost();
 
     // 5. Merge Data
     const seasons = {};
@@ -207,7 +216,8 @@ export async function load({ params, locals }) {
         seasons,
         isMonitored,
         jellyfinSeriesId,
-        unmappedRecordings
+        unmappedRecordings,
+        JELLYFIN_HOST
     };
 }
 

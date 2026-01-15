@@ -92,9 +92,9 @@
                                         class="w-full h-full object-cover"
                                         on:error={(e) => e.currentTarget.style.display='none'}
                                     />
-                                {:else if timer.SeriesPrimaryImageTag}
+                                {:else if timer.SeriesId}
                                      <img
-                                        src="{data.JELLYFIN_HOST}/Items/{timer.SeriesId}/Images/Primary?Tag={timer.SeriesPrimaryImageTag}&MaxWidth=100"
+                                        src="{data.JELLYFIN_HOST}/Items/{timer.SeriesId}/Images/Primary?{timer.SeriesPrimaryImageTag ? `Tag=${timer.SeriesPrimaryImageTag}&` : ''}MaxWidth=100"
                                         alt={timer.Name}
                                         class="w-full h-full object-cover"
                                         on:error={(e) => e.currentTarget.style.display='none'}
