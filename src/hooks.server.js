@@ -29,5 +29,15 @@ export async function handle({ event, resolve }) {
         throw redirect(303, '/login');
     }
 
+    const sessionId = event.cookies.get('session_id');
+    const userId = event.cookies.get('user_id');
+
+    if (sessionId && userId) {
+        event.locals.user = {
+            user: { Id: userId },
+            token: sessionId
+        };
+    }
+
     return resolve(event);
 }

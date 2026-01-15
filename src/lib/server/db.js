@@ -9,7 +9,13 @@ db.exec(`
     CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
         value TEXT
-    )
+    );
+
+    CREATE TABLE IF NOT EXISTS tvmaze_cache (
+        endpoint TEXT PRIMARY KEY,
+        data JSON,
+        updated_at INTEGER
+    );
 `);
 
 const getStmt = db.prepare('SELECT value FROM settings WHERE key = ?');
@@ -23,3 +29,5 @@ export function getSetting(key) {
 export function setSetting(key, value) {
     setStmt.run(key, value);
 }
+
+export { db };

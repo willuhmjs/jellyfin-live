@@ -86,7 +86,7 @@ export async function getChannels(userId, token) {
  * @param {number} limit
  * @returns {Promise<any[]>}
  */
-export async function getPrograms(userId, token, limit = 100) {
+export async function getPrograms(userId, token, limit = 100, searchTerm = null) {
 	// Fetch programs for the next 48 hours to be safe, or just use limit.
 	// We'll use HasAired=false to get future programs.
 	const params = new URLSearchParams({
@@ -98,6 +98,10 @@ export async function getPrograms(userId, token, limit = 100) {
 		ImageTypeLimit: '1',
 		EnableImageTypes: 'Primary'
 	});
+
+    if (searchTerm) {
+        params.append('SearchTerm', searchTerm);
+    }
 
     const host = await getHost();
 	const res = await fetch(`${host}/LiveTv/Programs?${params.toString()}`, {
@@ -151,16 +155,19 @@ export async function getProgram(userId, token, programId) {
  * @param {string} seasonId
  * @returns {Promise<any[]>}
  */
-export async function getEpisodes(userId, token, seriesId, seasonId) {
+export async function getEpisodes(userId, token, seriesId, seasonId = null) {
     const host = await getHost();
     const params = new URLSearchParams({
         UserId: userId,
-        SeasonId: seasonId,
         SeriesId: seriesId,
         Fields: 'Overview,PrimaryImageAspectRatio',
         SortBy: 'IndexNumber',
         SortOrder: 'Ascending'
     });
+
+    if (seasonId) {
+        params.append('SeasonId', seasonId);
+    }
 
     // Note: Jellyfin uses /Shows/{Id}/Episodes
     const res = await fetch(`${host}/Shows/${seriesId}/Episodes?${params.toString()}`, {
@@ -207,6 +214,43 @@ export async function getRecordings(userId, token) {
 
 	const data = await res.json();
 	return data.Items || [];
+}
+
+/**
+ * Get Series from Library
+ * @param {string} userId
+ * @param {string} token
+ * @param {string} searchTerm
+ * @returns {Promise<any[]>}
+ */
+export async function getSeries(userId, token, searchTerm = null) {
+    const host = await getHost();
+    const params = new URLSearchParams({
+        UserId: userId,
+        Recursive: 'true',
+        IncludeItemTypes: 'Series',
+        Fields: 'Overview,PrimaryImageAspectRatio,ProviderIds',
+        SortBy: 'SortName',
+        SortOrder: 'Ascending'
+    });
+
+    if (searchTerm) {
+        params.append('SearchTerm', searchTerm);
+    }
+
+    const res = await fetch(`${host}/Users/${userId}/Items?${params.toString()}`, {
+        headers: {
+            ...headers,
+            'X-Emby-Token': token
+        }
+    });
+
+    if (!res.ok) {
+        throw new Error('Failed to fetch series');
+    }
+
+    const data = await res.json();
+    return data.Items || [];
 }
 
 /**
@@ -328,7 +372,11 @@ export async function scheduleRecording(token, programId, isSeries = false, user
  */
 export async function getTimers(token) {
     const host = await getHost();
-	const res = await fetch(`${host}/LiveTv/Timers`, {
+    const params = new URLSearchParams({
+        Fields: 'SeriesId,ProgramId,EpisodeTitle,Name,Overview,SeasonId,ParentIndexNumber,IndexNumber,StartDate,EndDate,ChannelName,Status,SeriesPrimaryImageTag,SeriesName'
+    });
+
+	const res = await fetch(`${host}/LiveTv/Timers?${params.toString()}`, {
 		headers: {
 			...headers,
 			'X-Emby-Token': token
