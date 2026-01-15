@@ -39,6 +39,8 @@ export async function load({ params, locals }) {
     let jellyfinEpisodes = [];
     let isMonitored = false;
     let jellyfinSeriesId = null;
+    let guidePrograms = [];
+    let scheduledTimers = [];
 
     try {
         // 2. Search Jellyfin for Series
@@ -71,6 +73,20 @@ export async function load({ params, locals }) {
                 isMonitored = true;
             }
         }
+
+        // Fetch guide data and timers concurrently
+        const [programsResult, timersResult] = await Promise.allSettled([
+            jellyfin.getPrograms(user.Id, token, 100, show.name),
+            jellyfin.getTimers(token)
+        ]);
+        
+        if (programsResult.status === 'fulfilled') {
+            guidePrograms = programsResult.value;
+        }
+        if (timersResult.status === 'fulfilled') {
+            scheduledTimers = timersResult.value;
+        }
+
     } catch (e) {
         console.error('Error fetching Jellyfin data (continuing anyway):', e);
         // We continue without Jellyfin data so the user can still see show info
@@ -78,7 +94,27 @@ export async function load({ params, locals }) {
 
     // 5. Merge Data
     const seasons = {};
+    const matchedTimerIds = new Set();
     
+    // Helper for name matching
+    const cleanName = (n) => n ? n.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+    const matchName = (target, ...candidates) => {
+        const cleanTarget = cleanName(target);
+        if (!cleanTarget) return false;
+        return candidates.some(c => cleanName(c) === cleanTarget);
+    };
+
+    // Filter timers for this series
+    const showTimers = scheduledTimers.filter(t => {
+        // Match by SeriesId if available
+        if (jellyfinSeriesId && (t.SeriesId === jellyfinSeriesId || t.ParentId === jellyfinSeriesId)) return true;
+        // Match by Name (SeriesName or Name if generic)
+        if (t.SeriesName && cleanName(t.SeriesName) === cleanName(show.name)) return true;
+        // Fallback: If Name is series name
+        if (cleanName(t.Name) === cleanName(show.name)) return true;
+        return false;
+    });
+
     if (show._embedded && show._embedded.episodes) {
         for (const ep of show._embedded.episodes) {
             const seasonNum = ep.season;
@@ -86,27 +122,64 @@ export async function load({ params, locals }) {
                 seasons[seasonNum] = [];
             }
 
-            const isOwned = jellyfinEpisodes.some(je =>
-                je.ParentIndexNumber === ep.season &&
-                je.IndexNumber === ep.number
-            );
+            const isOwned = jellyfinEpisodes.some(je => {
+                const matchIndex = je.ParentIndexNumber == ep.season &&
+                                 je.IndexNumber == ep.number;
+                
+                if (matchIndex) return true;
+
+                // Fallback: Match by name if indices are missing or mismatch
+                // Check Name and EpisodeTitle (if available)
+                return matchName(ep.name, je.Name, je.EpisodeTitle);
+            });
             
             const airdate = ep.airdate ? new Date(ep.airdate) : null;
             const isUpcoming = airdate && airdate > new Date();
 
+            // Check for guide match
+            const guideMatch = guidePrograms.find(p => {
+                // Use loose equality for season/episode numbers to handle string/number mismatch
+                if (p.ParentIndexNumber == ep.season && p.IndexNumber == ep.number) return true;
+                if (matchName(ep.name, p.Name, p.EpisodeTitle)) return true;
+                // Match by PremiereDate (Original Air Date)
+                if (ep.airdate && p.PremiereDate && p.PremiereDate.startsWith(ep.airdate)) return true;
+                return false;
+            });
+
+            // Check if ALREADY recording (using timers directly, independent of guide match)
+            const recordingTimer = showTimers.find(t => {
+                 // Use loose equality for season/episode numbers
+                 if (t.ParentIndexNumber == ep.season && t.IndexNumber == ep.number) return true;
+                 if (matchName(ep.name, t.Name, t.EpisodeTitle)) return true;
+                 // Match by PremiereDate (Original Air Date)
+                 if (ep.airdate && t.PremiereDate && t.PremiereDate.startsWith(ep.airdate)) return true;
+                 return false;
+            });
+
+            if (recordingTimer) {
+                matchedTimerIds.add(recordingTimer.Id || recordingTimer.ProgramId);
+            }
+
+            const isRecording = !!recordingTimer;
+
             seasons[seasonNum].push({
                 ...ep,
                 owned: isOwned,
-                upcoming: isUpcoming
+                upcoming: isUpcoming,
+                guideProgramId: guideMatch ? guideMatch.Id : null,
+                isRecording
             });
         }
     }
+
+    const unmappedRecordings = showTimers.filter(t => !matchedTimerIds.has(t.Id || t.ProgramId));
 
     return {
         show,
         seasons,
         isMonitored,
-        jellyfinSeriesId
+        jellyfinSeriesId,
+        unmappedRecordings
     };
 }
 
@@ -145,6 +218,27 @@ export const actions = {
             return { success: true };
         } catch (e) {
             console.error('Failed to record series:', e);
+            return fail(500, { message: 'Failed to schedule recording' });
+        }
+    },
+
+    recordEpisode: async ({ request, locals }) => {
+        if (!locals.user) {
+            return fail(401, { message: 'Unauthorized' });
+        }
+
+        const data = await request.formData();
+        const programId = data.get('programId');
+
+        if (!programId) {
+            return fail(400, { message: 'Program ID required' });
+        }
+
+        try {
+            await jellyfin.scheduleRecording(locals.user.token, programId, false, locals.user.user.Id);
+            return { success: true, message: 'Recording scheduled' };
+        } catch (e) {
+            console.error('Failed to record episode:', e);
             return fail(500, { message: 'Failed to schedule recording' });
         }
     }

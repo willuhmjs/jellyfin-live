@@ -23,7 +23,12 @@ export async function load({ cookies }) {
 		// Filter for premieres
 		const premieres = programs.filter(p => p.IsPremiere);
 
-		// Group timers by Series (Scheduled)
+		// Process timers for Scheduled Recordings list
+		const scheduledRecordings = (timers || []).sort((a, b) => {
+			return new Date(a.StartDate) - new Date(b.StartDate);
+		});
+
+		// Group timers by Series (Scheduled) for My Series identification
 		const timerGroups = {};
 		for (const timer of (timers || [])) {
 			const groupId = timer.SeriesId || timer.Name;
@@ -38,7 +43,7 @@ export async function load({ cookies }) {
 			timerGroups[groupId].timers.push(timer);
 		}
 
-        // Identify all unique series from Timers (Scheduled) and Recordings (Library)
+		      // Identify all unique series from Timers (Scheduled) and Recordings (Library)
         const monitoredSeriesMap = new Map();
 
         // Add from Timers
@@ -65,12 +70,33 @@ export async function load({ cookies }) {
 
         const monitoredSeries = Array.from(monitoredSeriesMap.values()).sort((a, b) => a.name.localeCompare(b.name));
 
-		return {
-			groupedTimers: Object.values(timerGroups), // Keep for legacy/debug view if needed
-            monitoredSeries,
-			premieres,
-			JELLYFIN_HOST
-		};
+        // Enrich with TVMaze images
+        const seriesWithImages = await Promise.all(monitoredSeries.map(async (series) => {
+            try {
+                // Search TVMaze for the show (cached)
+                const results = await tvmaze.searchShows(series.name);
+                // Find exact match or fallback to first result
+                const match = results.find(r => r.show.name.toLowerCase() === series.name.toLowerCase()) || results[0];
+                
+                if (match && match.show.image) {
+                    return {
+                        ...series,
+                        tvmazeImage: match.show.image.original || match.show.image.medium
+                    };
+                }
+            } catch (e) {
+                // Silently fail and fallback to Jellyfin image
+                console.warn(`Failed to fetch TVMaze image for ${series.name}:`, e);
+            }
+            return series;
+        }));
+
+  return {
+   scheduledRecordings,
+            monitoredSeries: seriesWithImages,
+   premieres,
+   JELLYFIN_HOST
+  };
 	} catch (e) {
 		console.error('Error fetching dashboard data:', e);
 		return {

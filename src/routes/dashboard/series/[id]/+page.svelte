@@ -125,6 +125,38 @@
 
         <!-- Seasons & Episodes -->
         <div class="space-y-8">
+            {#if data.unmappedRecordings && data.unmappedRecordings.length > 0}
+                <div class="space-y-4">
+                    <h2 class="text-2xl font-bold border-b border-gray-800 pb-2">Scheduled Recordings</h2>
+                    <div class="bg-gray-900/50 rounded-xl overflow-hidden border border-gray-800 divide-y divide-gray-800">
+                        {#each data.unmappedRecordings as timer}
+                            <div class="px-6 py-4 flex items-center justify-between gap-4">
+                                <div>
+                                    <h4 class="font-medium text-white">{timer.EpisodeTitle || timer.Name || 'Unknown Episode'}</h4>
+                                    <div class="text-xs text-gray-500 mt-1 flex flex-wrap gap-2">
+                                        {#if timer.StartDate}
+                                            <span>{new Date(timer.StartDate).toLocaleString()}</span>
+                                        {/if}
+                                        {#if timer.ChannelName}
+                                            <span>• {timer.ChannelName}</span>
+                                        {/if}
+                                    </div>
+                                    {#if timer.Overview}
+                                        <p class="text-xs text-gray-400 mt-1 line-clamp-1">{timer.Overview}</p>
+                                    {/if}
+                                </div>
+                                <span class="flex-shrink-0 px-3 py-1 bg-red-900/30 text-red-400 rounded-full text-xs font-medium border border-red-900/50 flex items-center gap-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 9a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 00-1-1H8z" clip-rule="evenodd" />
+                                    </svg>
+                                    Recording
+                                </span>
+                            </div>
+                        {/each}
+                    </div>
+                </div>
+            {/if}
+
             <h2 class="text-2xl font-bold border-b border-gray-800 pb-2">Episodes</h2>
             
             {#if Object.keys(seasons).length === 0}
@@ -133,6 +165,7 @@
 
             {#each Object.entries(seasons).reverse() as [seasonNum, episodes]}
                 {@const ownedCount = episodes.filter(e => e.owned).length}
+                {@const hasUpcoming = episodes.some(e => e.guideProgramId)}
                 <div class="bg-gray-900/50 rounded-xl overflow-hidden border border-gray-800">
                     <button
                         class="w-full px-6 py-4 bg-gray-800/50 flex justify-between items-center hover:bg-gray-800 transition-colors text-left"
@@ -145,6 +178,13 @@
                                 <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
                             </svg>
                             <h3 class="font-bold text-lg">Season {seasonNum}</h3>
+                            {#if hasUpcoming}
+                                <span class="text-blue-400 ml-2" title="Upcoming Airings">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+                                    </svg>
+                                </span>
+                            {/if}
                         </div>
                         <span class="text-sm text-gray-500">{ownedCount} / {episodes.length} Episodes</span>
                     </button>
@@ -176,6 +216,23 @@
                                             <span class="px-3 py-1 bg-green-900/30 text-green-400 rounded-full text-xs font-medium border border-green-900/50">
                                                 Library
                                             </span>
+                                        {:else if ep.isRecording}
+                                            <span class="px-3 py-1 bg-red-900/30 text-red-400 rounded-full text-xs font-medium border border-red-900/50 flex items-center gap-1">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 9a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1v-4a1 1 0 00-1-1H8z" clip-rule="evenodd" />
+                                                </svg>
+                                                Recording
+                                            </span>
+                                        {:else if ep.guideProgramId}
+                                             <form method="POST" action="?/recordEpisode" use:enhance>
+                                                <input type="hidden" name="programId" value={ep.guideProgramId} />
+                                                <button class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-full text-xs font-medium transition-colors flex items-center gap-1">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 9a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1v-4a1 1 0 00-1-1H8z" clip-rule="evenodd" />
+                                                    </svg>
+                                                    Record
+                                                </button>
+                                             </form>
                                         {:else if ep.upcoming}
                                             <span class="px-3 py-1 bg-blue-900/30 text-blue-400 rounded-full text-xs font-medium border border-blue-900/50">
                                                 Upcoming
