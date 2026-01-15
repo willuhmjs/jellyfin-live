@@ -339,35 +339,29 @@ export async function scheduleRecording(token, programId, isSeries = false, user
             const program = await getProgram(userId, token, programId);
             console.log('Program Details:', JSON.stringify(program));
 
-            // Use provided ServiceName if available (e.g. from plugins), otherwise default to 'Emby' for native LiveTV.
-            // Do NOT use ChannelName as ServiceName, as that causes 500 errors (KeyNotFoundException).
-            let serviceName = program.ServiceName || 'Emby';
-
             payload = {
                 ChannelId: program.ChannelId,
                 ProgramId: program.Id,
                 StartDate: program.StartDate,
                 EndDate: program.EndDate,
-                ServiceName: serviceName,
                 Status: 'New',
                 Name: program.Name,
-                Overview: program.Overview,
+                Overview: program.Overview || '',
                 TimerType: 'Program',
-                RecordAnyTime: false,
-                PrePaddingSeconds: 0,
-                PostPaddingSeconds: 0,
-                IsPrePaddingRequired: false,
-                IsPostPaddingRequired: false,
-                Priority: 0,
-                KeepUpTo: 0
+                RecordAnyTime: false
             };
+
+            // Only add ServiceName if it exists in the program details
+            if (program.ServiceName) {
+                payload.ServiceName = program.ServiceName;
+            }
         } catch (e) {
             console.error('Failed to fetch program details for recording, falling back to minimal payload', e);
             payload = {
                 ProgramId: programId,
                 Status: 'New',
                 TimerType: 'Program',
-                RecordAnyTime: true
+                RecordAnyTime: false
             };
         }
     }
