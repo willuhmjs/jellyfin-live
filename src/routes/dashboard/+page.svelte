@@ -33,12 +33,12 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <!-- Search Section -->
         <section class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-            <h2 class="text-xl font-semibold mb-4">Find Shows</h2>
+            <h2 class="text-xl font-semibold mb-4">Find Content</h2>
             <form method="POST" action="?/search" use:enhance class="flex gap-4 mb-4">
                 <input
                     type="text"
                     name="query"
-                    placeholder="Search TVMaze..."
+                    placeholder="Search Series..."
                     class="flex-grow p-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none"
                     value={form?.query || ''}
                 />
@@ -110,12 +110,12 @@
                             
                             <!-- Content -->
                              <div class="flex-grow min-w-0 flex items-center justify-between gap-2">
-                                <h4 class="font-medium text-xs text-gray-900 dark:text-gray-100 truncate" title={timer.Name}>
-                                    {#if timer.SeriesName}
-                                        {timer.SeriesName} -
-                                    {/if}
-                                    {timer.Name}
-                                </h4>
+                                 <h4 class="font-medium text-xs text-gray-900 dark:text-gray-100 truncate" title={timer.EpisodeTitle || timer.Name}>
+                                     {#if timer.SeriesName}
+                                         {timer.SeriesName} -
+                                     {/if}
+                                     {timer.EpisodeTitle || timer.Name}
+                                 </h4>
                                 <div class="flex-shrink-0">
                                      {#if isAiring(timer.StartDate, timer.EndDate)}
                                         <span class="flex items-center text-[10px] text-red-600 dark:text-red-400 font-bold animate-pulse">
@@ -136,9 +136,9 @@
         </section>
     </div>
 
-<!-- My Series Section (Jellyseerr Style - Horizontal Scroll) -->
+<!-- My Library Section (Jellyseerr Style - Horizontal Scroll) -->
 <section>
-    <h2 class="text-2xl font-semibold mb-4 border-b pb-2 border-gray-200 dark:border-gray-700">My Series</h2>
+    <h2 class="text-2xl font-semibold mb-4 border-b pb-2 border-gray-200 dark:border-gray-700">My Library</h2>
     {#if data.monitoredSeries.length > 0}
         <div class="flex overflow-x-auto gap-4 pb-6 snap-x scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
             {#each data.monitoredSeries as series}
@@ -162,7 +162,7 @@
                         {/if}
                         
                          <!-- Status Badge Overlay -->
-                         <div class="absolute top-2 right-2">
+                         <div class="absolute top-2 right-2 flex flex-col gap-1 items-end">
                             <span class="flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold shadow-sm
                                 {series.status === 'Recorded' ? 'bg-green-500 text-white' : 'bg-blue-500 text-white'}">
                                 {#if series.status === 'Recorded'}
@@ -175,6 +175,11 @@
                                     </svg>
                                 {/if}
                             </span>
+                            {#if series.isMovie}
+                                <span class="px-1.5 py-0.5 bg-gray-900/80 text-white text-[9px] font-bold rounded uppercase tracking-wider backdrop-blur-sm">
+                                    Movie
+                                </span>
+                            {/if}
                          </div>
                     </div>
 

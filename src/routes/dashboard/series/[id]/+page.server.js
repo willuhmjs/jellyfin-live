@@ -85,6 +85,34 @@ export async function load({ params, locals }) {
         }
         if (timersResult.status === 'fulfilled') {
             scheduledTimers = timersResult.value;
+
+            // Enrich timers with missing EpisodeTitle
+            const timersToEnrich = scheduledTimers.filter(t => !t.EpisodeTitle && t.ProgramId);
+            if (timersToEnrich.length > 0) {
+                 const programIds = [...new Set(timersToEnrich.map(t => t.ProgramId))];
+                 try {
+                     const results = await Promise.allSettled(
+                         programIds.map(id => jellyfin.getProgram(user.Id, token, id))
+                     );
+                     
+                     results.forEach(result => {
+                         if (result.status === 'fulfilled') {
+                             const item = result.value;
+                             const matchingTimers = scheduledTimers.filter(t => t.ProgramId === item.Id);
+                             
+                             matchingTimers.forEach(t => {
+                                 t.EpisodeTitle = item.EpisodeTitle || item.Name;
+                                 
+                                 if (t.Name === t.SeriesName && item.Name && item.Name !== t.SeriesName) {
+                                     t.Name = item.Name;
+                                 }
+                             });
+                         }
+                     });
+                 } catch (err) {
+                     console.warn('Failed to enrich timers:', err);
+                 }
+            }
         }
 
     } catch (e) {

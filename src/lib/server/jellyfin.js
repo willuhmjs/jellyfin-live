@@ -148,6 +148,38 @@ export async function getProgram(userId, token, programId) {
 }
 
 /**
+ * Get Items by IDs
+ * @param {string} userId
+ * @param {string} token
+ * @param {string[]} ids
+ * @returns {Promise<any[]>}
+ */
+export async function getItems(userId, token, ids) {
+    if (!ids || ids.length === 0) return [];
+
+    const host = await getHost();
+    const params = new URLSearchParams({
+        Ids: ids.join(','),
+        Fields: 'EpisodeTitle,Overview,SeriesName,PremiereDate'
+    });
+
+    const res = await fetch(`${host}/Users/${userId}/Items?${params.toString()}`, {
+        headers: {
+            ...headers,
+            'X-Emby-Token': token
+        }
+    });
+
+    if (!res.ok) {
+        console.warn('Failed to fetch items by IDs');
+        return [];
+    }
+
+    const data = await res.json();
+    return data.Items || [];
+}
+
+/**
  * Get Episodes for a Series/Season
  * @param {string} userId
  * @param {string} token

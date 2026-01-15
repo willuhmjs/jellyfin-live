@@ -23,55 +23,102 @@ export async function load({ cookies }) {
 		// Filter for premieres
 		const premieres = programs.filter(p => p.IsPremiere);
 
+		      // Enrich timers with missing EpisodeTitle
+		      const timersToEnrich = (timers || []).filter(t => !t.EpisodeTitle && t.ProgramId);
+		      if (timersToEnrich.length > 0) {
+		          const programIds = [...new Set(timersToEnrich.map(t => t.ProgramId))];
+		          try {
+		                    // Fetch program details concurrently since getItems might not work for ProgramIds
+		                    const results = await Promise.allSettled(
+		                        programIds.map(id => jellyfin.getProgram(userId, sessionId, id))
+		                    );
+		                    
+		                    results.forEach(result => {
+		                        if (result.status === 'fulfilled') {
+		                            const item = result.value;
+		                            const matchingTimers = timers.filter(t => t.ProgramId === item.Id);
+		                            
+		                            matchingTimers.forEach(timer => {
+		                                 timer.EpisodeTitle = item.EpisodeTitle || item.Name;
+		                                 
+		                                 if (timer.Name === timer.SeriesName && item.Name && item.Name !== timer.SeriesName) {
+		                                     timer.Name = item.Name;
+		                                 }
+		                            });
+		                        }
+		                    });
+		          } catch (e) {
+		              console.warn('Failed to enrich timers with episode titles:', e);
+		          }
+		      }
+
 		// Process timers for Scheduled Recordings list
 		const scheduledRecordings = (timers || []).sort((a, b) => {
 			return new Date(a.StartDate) - new Date(b.StartDate);
 		});
 
-		// Group timers by Series (Scheduled) for My Series identification
+		// Group timers by Series/Movie (Scheduled) for My Library identification
 		const timerGroups = {};
 		for (const timer of (timers || [])) {
 			const groupId = timer.SeriesId || timer.Name;
+		          const isMovie = !timer.SeriesId;
+
 			if (!timerGroups[groupId]) {
 				timerGroups[groupId] = {
 					seriesId: timer.SeriesId || timer.ProgramId || timer.Id,
 					seriesName: timer.SeriesName || timer.Name,
 					seriesImageTag: timer.SeriesPrimaryImageTag || timer.ImageTags?.Primary,
+		                  isMovie,
 					timers: []
 				};
 			}
 			timerGroups[groupId].timers.push(timer);
 		}
 
-		      // Identify all unique series from Timers (Scheduled) and Recordings (Library)
-        const monitoredSeriesMap = new Map();
+		// Identify all unique content from Timers (Scheduled) and Recordings (Library)
+		      const monitoredSeriesMap = new Map();
 
-        // Add from Timers
-        Object.values(timerGroups).forEach(group => {
-            monitoredSeriesMap.set(group.seriesName, {
-                name: group.seriesName,
-                id: group.seriesId, // Jellyfin ID
-                imageTag: group.seriesImageTag,
-                status: 'Scheduled'
-            });
-        });
+		      // Add from Timers
+		      Object.values(timerGroups).forEach(group => {
+		          monitoredSeriesMap.set(group.seriesName, {
+		              name: group.seriesName,
+		              id: group.seriesId, // Jellyfin ID
+		              imageTag: group.seriesImageTag,
+		              status: 'Scheduled',
+		              isMovie: group.isMovie
+		          });
+		      });
 
-        // Add from Recordings
-        for (const rec of (recordings || [])) {
-        	if (rec.SeriesName && !monitoredSeriesMap.has(rec.SeriesName)) {
-        		monitoredSeriesMap.set(rec.SeriesName, {
-                    name: rec.SeriesName,
-                    id: rec.SeriesId,
-                    imageTag: rec.ImageTags?.Primary,
-                    status: 'Recorded'
-                });
-            }
-        }
+		      // Add from Recordings
+		      for (const rec of (recordings || [])) {
+		           // Series Logic
+		      	if (rec.SeriesName && !monitoredSeriesMap.has(rec.SeriesName)) {
+		      		monitoredSeriesMap.set(rec.SeriesName, {
+		                  name: rec.SeriesName,
+		                  id: rec.SeriesId,
+		                  imageTag: rec.ImageTags?.Primary,
+		                  status: 'Recorded',
+		                  isMovie: false
+		              });
+		          }
+		          // Movie Logic (No SeriesName)
+		          else if (!rec.SeriesName && !monitoredSeriesMap.has(rec.Name)) {
+		              monitoredSeriesMap.set(rec.Name, {
+		                  name: rec.Name,
+		                  id: rec.Id,
+		                  imageTag: rec.ImageTags?.Primary,
+		                  status: 'Recorded',
+		                  isMovie: true
+		              });
+		          }
+		      }
 
         const monitoredSeries = Array.from(monitoredSeriesMap.values()).sort((a, b) => a.name.localeCompare(b.name));
 
-        // Enrich with TVMaze images
+        // Enrich with TVMaze images (Series Only)
         const seriesWithImages = await Promise.all(monitoredSeries.map(async (series) => {
+            if (series.isMovie) return series; // Skip TVMaze lookup for movies
+
             try {
                 // Search TVMaze for the show (cached)
                 const results = await tvmaze.searchShows(series.name);
