@@ -61,7 +61,7 @@
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
             {#each filteredSeries as series (series.name)}
                 <a
-                    href="/dashboard/series/lookup?name={encodeURIComponent(series.name)}"
+                    href="/dashboard/series/{series.id}"
                     class="group relative flex flex-col gap-3"
                     animate:flip={{duration: 300}}
                     in:fly={{y: 20, duration: 300}}

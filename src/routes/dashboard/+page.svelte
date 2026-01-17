@@ -197,7 +197,7 @@
                 {#if filteredSeries.length > 0}
                     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
                         {#each filteredSeries.slice(0, 8) as series (series.name)}
-                             <a href="/dashboard/series/lookup?name={encodeURIComponent(series.name)}" class="group relative flex flex-col gap-3" animate:flip={{duration: 300}}>
+                             <a href="/dashboard/series/{series.id}" class="group relative flex flex-col gap-3" animate:flip={{duration: 300}}>
                                 <div class="relative w-full aspect-[1/1] sm:aspect-[2/3] rounded-2xl overflow-hidden bg-card shadow-lg border border-white/5 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-xl group-hover:shadow-accent/10">
                                     {#if series.tvmazeImage}
                                         <img src={series.tvmazeImage} alt={series.name} class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
