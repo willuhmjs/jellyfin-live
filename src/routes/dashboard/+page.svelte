@@ -2,6 +2,7 @@
     import { enhance } from '$app/forms';
     import { onMount } from 'svelte';
     import { fade, fly } from 'svelte/transition';
+    import { flip } from 'svelte/animate';
 
     export let data;
     export let form;
@@ -21,6 +22,29 @@
         const endTime = new Date(end);
         return now >= startTime && now <= endTime;
     };
+
+    let libraryFilter = 'all';
+
+    $: filteredSeries = data.monitoredSeries.filter(series => {
+        if (libraryFilter === 'Recorded') return series.status === 'Recorded';
+        return true;
+    });
+
+    /** @param {string} tag */
+    function handleHeroAction(tag) {
+        if (tag === 'Upcoming' || tag === 'Premieres') {
+            const el = document.getElementById('premieres');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+        } else if (tag === 'Favorites') {
+            libraryFilter = 'all';
+            const el = document.getElementById('library');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+        } else if (tag === 'Recorded') {
+            libraryFilter = 'Recorded';
+            const el = document.getElementById('library');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }
+    }
 
     /** @param {Event} e */
     function handleImageError(e) {
@@ -88,12 +112,12 @@
     {#if !form?.results}
     <!-- Hero / Discovery Section -->
     <section class="relative rounded-3xl overflow-hidden bg-gradient-to-r from-[#1e3a8a] to-[#0f172a] shadow-2xl border border-white/5">
-        <div class="absolute inset-0 bg-[url('/noise.png')] opacity-20 mix-blend-overlay"></div> <!-- Optional noise texture if available, otherwise invisible -->
-        <div class="absolute top-0 right-0 p-12 opacity-50">
+        <div class="absolute inset-0 bg-[url('/noise.png')] opacity-20 mix-blend-overlay pointer-events-none"></div> <!-- Optional noise texture if available, otherwise invisible -->
+        <div class="absolute top-0 right-0 p-12 opacity-50 pointer-events-none">
              <div class="w-64 h-64 bg-accent/20 rounded-full blur-3xl"></div>
         </div>
         
-        <div class="relative p-8 md:p-12 lg:p-16 flex flex-col justify-center min-h-[400px]">
+        <div class="relative z-10 p-8 md:p-12 lg:p-16 flex flex-col justify-center min-h-[400px]">
             <div class="flex items-center gap-2 text-accent-glow font-medium mb-4">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M5 2a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0V6H3a1 1 0 010-2h1V3a1 1 0 011-1zm0 5a1 1 0 011 1v1h1a1 1 0 110 2H6v1a1 1 0 11-2 0v-1H3a1 1 0 110-2h1V8a1 1 0 011-1zm5-5a1 1 0 011 1v1h1a1 1 0 010 2h-1v1a1 1 0 01-2 0V6h-1a1 1 0 010-2h1V3a1 1 0 011-1zm0 5a1 1 0 011 1v1h1a1 1 0 110 2h-1v1a1 1 0 11-2 0v-1h-1a1 1 0 110-2h1V8a1 1 0 011-1z" clip-rule="evenodd" />
@@ -107,13 +131,6 @@
                 Track your favorite shows, manage recordings, and discover new content from your Jellyfin library.
             </p>
             
-            <div class="flex flex-wrap gap-3">
-                {#each ['Upcoming', 'Premieres', 'Favorites', 'Recorded'] as tag}
-                    <span class="px-4 py-1.5 rounded-full bg-white/10 text-sm font-medium text-white hover:bg-white/20 transition-colors cursor-default backdrop-blur-sm border border-white/5">
-                        {tag}
-                    </span>
-                {/each}
-            </div>
 
             <div class="absolute bottom-8 right-8 text-xs text-gray-500 bg-black/20 px-3 py-1 rounded-full backdrop-blur-md">
                 Updated {new Date().toLocaleDateString()}
@@ -127,7 +144,7 @@
             
             <!-- Upcoming Premieres -->
             {#if data.premieres.length > 0}
-            <section>
+            <section id="premieres" class="scroll-mt-24">
                  <div class="flex items-center justify-between mb-6">
                     <h2 class="text-2xl font-bold text-white flex items-center gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
@@ -177,10 +194,10 @@
                      <a href="/dashboard/series" class="text-sm font-medium text-accent hover:text-accent-glow transition-colors">View All</a>
                 </div>
 
-                {#if data.monitoredSeries.length > 0}
+                {#if filteredSeries.length > 0}
                     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
-                        {#each data.monitoredSeries.slice(0, 8) as series}
-                             <a href="/dashboard/series/lookup?name={encodeURIComponent(series.name)}" class="group relative flex flex-col gap-3">
+                        {#each filteredSeries.slice(0, 8) as series (series.name)}
+                             <a href="/dashboard/series/lookup?name={encodeURIComponent(series.name)}" class="group relative flex flex-col gap-3" animate:flip={{duration: 300}}>
                                 <div class="relative w-full aspect-[1/1] sm:aspect-[2/3] rounded-2xl overflow-hidden bg-card shadow-lg border border-white/5 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-xl group-hover:shadow-accent/10">
                                     {#if series.tvmazeImage}
                                         <img src={series.tvmazeImage} alt={series.name} class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -211,14 +228,14 @@
                                 </div>
                                 <div class="text-center px-1">
                                     <h3 class="font-bold text-sm text-gray-200 truncate group-hover:text-white transition-colors" title={series.name}>{series.name}</h3>
-                                    <p class="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Artist</p> <!-- Placeholder for 'Artist' from image, using 'Artist' style label -->
+                                    <!-- <p class="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Artist</p> Placeholder for 'Artist' from image, using 'Artist' style label -->
                                 </div>
                             </a>
                         {/each}
                     </div>
                 {:else}
                      <div class="p-8 text-center border border-dashed border-gray-700 rounded-2xl">
-                        <p class="text-gray-500 italic">No monitored series found. Start by searching for a show!</p>
+                        <p class="text-gray-500 italic">No series found with current filter.</p>
                     </div>
                 {/if}
             </section>
@@ -227,7 +244,7 @@
         <!-- Sidebar / Right Column -->
         <div class="space-y-8">
             <!-- Scheduled Recordings Widget -->
-            <div class="bg-card border border-white/5 rounded-2xl p-6 shadow-xl sticky top-8">
+            <div id="scheduled" class="bg-card border border-white/5 rounded-2xl p-6 shadow-xl sticky top-8 scroll-mt-24">
                 <h2 class="text-xl font-bold text-white mb-6 flex items-center justify-between">
                     <span>Scheduled</span>
                     <span class="text-xs font-bold text-black bg-white px-2 py-1 rounded-full">{data.scheduledRecordings.length}</span>
