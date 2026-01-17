@@ -357,45 +357,85 @@ export async function scheduleRecording(token, programId, isSeries = false, user
 	   let payload;
 
 	if (isSeries) {
-		payload = {
-			...defaults,
-			ProgramId: programId,
-			RecordAnyTime: true,
-			RecordAnyChannel: false,
-			RecordNewOnly: false
-		};
+	       // Try to fetch default series timer payload from server
+	       // Use generic endpoint as specific one might not exist
+	       try {
+	           const defaultsRes = await fetch(`${host}/LiveTv/Timers/Defaults?ProgramId=${programId}`, {
+	                headers: { ...headers, 'X-Emby-Token': token }
+	           });
+	           if (defaultsRes.ok) {
+	               payload = await defaultsRes.json();
+	               console.log('Got series recording defaults:', JSON.stringify(payload));
+	           } else {
+	                console.warn(`Fetch series recording defaults failed: ${defaultsRes.status} ${defaultsRes.statusText}`);
+	           }
+	       } catch (e) {
+	           console.warn('Failed to fetch series recording defaults', e);
+	       }
 
-		if (program) {
-			if (program.ChannelId) payload.ChannelId = program.ChannelId;
-			if (program.SeriesId) payload.SeriesId = program.SeriesId;
-			if (program.Name) payload.Name = program.Name;
-		}
+	       if (!payload) {
+	           payload = {
+	               ...defaults,
+	               ProgramId: programId,
+	               RecordAnyTime: true,
+	               RecordAnyChannel: false,
+	               RecordNewOnly: false
+	           };
+
+	           if (program) {
+	               if (program.ChannelId) payload.ChannelId = program.ChannelId;
+	               if (program.SeriesId) payload.SeriesId = program.SeriesId;
+	               if (program.Name) payload.Name = program.Name;
+	           }
+	       }
 	} else {
-		if (!program) {
-			console.warn(
-				'Program details missing for single recording schedule, using minimal payload.'
-			);
-			payload = {
-				...defaults,
-				ProgramId: programId,
-				TimerType: 'Program',
-				RecordAnyTime: false
-			};
-		} else {
-			payload = {
-				...defaults,
-				ChannelId: program.ChannelId,
-				ProgramId: program.Id,
-				StartDate: program.StartDate,
-				EndDate: program.EndDate,
-				Name: program.Name,
-				TimerType: 'Program',
-				RecordAnyTime: false
-			};
+	       // Try to fetch default timer payload from server
+	       try {
+	           const defaultsRes = await fetch(`${host}/LiveTv/Timers/Defaults?ProgramId=${programId}`, {
+	                headers: { ...headers, 'X-Emby-Token': token }
+	           });
+	           if (defaultsRes.ok) {
+	               payload = await defaultsRes.json();
+	               console.log('Got recording defaults:', JSON.stringify(payload));
+	           } else {
+	                console.warn(`Fetch recording defaults failed: ${defaultsRes.status} ${defaultsRes.statusText}`);
+	           }
+	       } catch (e) {
+	           console.warn('Failed to fetch recording defaults', e);
+	       }
 
-			if (program.Overview) payload.Overview = program.Overview;
-			if (program.ServiceName) payload.ServiceName = program.ServiceName;
-		}
+	       if (!payload) {
+	           if (!program) {
+	               console.warn(
+	                   'Program details missing for single recording schedule, using minimal payload.'
+	               );
+	               payload = {
+	                   ...defaults,
+	                   ProgramId: programId,
+	                   TimerType: 'Program'
+	               };
+	           } else {
+	               payload = {
+	                   ...defaults,
+	                   ChannelId: program.ChannelId,
+	                   ProgramId: program.Id,
+	                   StartDate: program.StartDate,
+	                   EndDate: program.EndDate,
+	                   Name: program.Name,
+	                   TimerType: 'Program',
+	                   RecordAnyTime: false,
+	                   RecordAnyChannel: false
+	               };
+
+	               if (program.Overview) payload.Overview = program.Overview;
+	               if (program.ServiceName) payload.ServiceName = program.ServiceName;
+	               if (program.EpisodeTitle) payload.EpisodeTitle = program.EpisodeTitle;
+	               if (program.SeriesId) payload.SeriesId = program.SeriesId;
+	               if (program.SeasonId) payload.SeasonId = program.SeasonId;
+	               if (program.ParentIndexNumber) payload.ParentIndexNumber = program.ParentIndexNumber;
+	               if (program.IndexNumber) payload.IndexNumber = program.IndexNumber;
+	           }
+	       }
 	}
 
 	console.log(`Scheduling recording (${isSeries ? 'Series' : 'Single'}) Payload:`, JSON.stringify(payload));
