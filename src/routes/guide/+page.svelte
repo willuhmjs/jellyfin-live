@@ -33,8 +33,8 @@
 	}
 </script>
 
-<div class="flex h-full flex-col bg-gray-950">
-	<header class="flex h-16 items-center gap-4 border-b border-gray-800 px-4 shrink-0">
+<div class="flex h-full flex-col bg-background">
+	<header class="flex h-16 items-center gap-4 border-b border-white/5 px-4 shrink-0">
 		<h1 class="text-xl font-bold text-white">TV Guide</h1>
 		<div class="relative ml-auto w-full max-w-md">
 			<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">

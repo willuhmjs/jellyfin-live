@@ -11,12 +11,16 @@
 
 <Toast />
 
-<div class="h-screen flex flex-col bg-gray-50 dark:bg-gray-900 dark:text-white">
+<div class="h-screen w-screen bg-background text-white selection:bg-accent selection:text-white font-sans flex overflow-hidden">
 	{#if data?.user?.isAuthenticated}
 		<Navbar />
+        <!-- Main content area: takes remaining width, full height, no scroll on itself -->
+        <main class="flex-1 flex flex-col h-full min-w-0 overflow-hidden relative pb-20 md:pb-0">
+            {@render children()}
+        </main>
+    {:else}
+        <main class="w-full h-full flex flex-col overflow-y-auto relative">
+            {@render children()}
+        </main>
 	{/if}
-
-	<main class="flex-1 flex flex-col min-h-0 relative overflow-hidden">
-		{@render children()}
-	</main>
 </div>

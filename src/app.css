@@ -1,3 +1,13 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/forms";
 @plugin "@tailwindcss/typography";
+
+@theme {
+  --color-background: #0B1221;
+  --color-sidebar: #0f172a;
+  --color-card: #161e31;
+}
+
+body {
+  @apply bg-background text-gray-100 font-sans antialiased;
+}

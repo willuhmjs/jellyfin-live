@@ -131,7 +131,7 @@ export async function getProgram(userId, token, programId) {
     const host = await getHost();
     const params = new URLSearchParams({
         UserId: userId,
-        Fields: 'People,Studios,CommunityRating,OfficialRating,Genres,Overview,SeriesId,SeasonId,EpisodeTitle,PremiereDate'
+        Fields: 'People,Studios,CommunityRating,OfficialRating,Genres,Overview,SeriesId,SeasonId,EpisodeTitle,PremiereDate,ChannelId,ProviderIds'
     });
 
     const res = await fetch(`${host}/LiveTv/Programs/${programId}?${params.toString()}`, {
@@ -185,7 +185,7 @@ export async function getItems(userId, token, ids) {
  * @param {string} userId
  * @param {string} token
  * @param {string} seriesId
- * @param {string} seasonId
+ * @param {string|null} seasonId
  * @returns {Promise<any[]>}
  */
 export async function getEpisodes(userId, token, seriesId, seasonId = null) {
@@ -253,7 +253,7 @@ export async function getRecordings(userId, token) {
  * Get Series from Library
  * @param {string} userId
  * @param {string} token
- * @param {string} searchTerm
+ * @param {string|null} searchTerm
  * @returns {Promise<any[]>}
  */
 export async function getSeries(userId, token, searchTerm = null) {
@@ -264,7 +264,7 @@ export async function getSeries(userId, token, searchTerm = null) {
  * Search for Items (Series, Movie, etc)
  * @param {string} userId
  * @param {string} token
- * @param {string} searchTerm
+ * @param {string|null} searchTerm
  * @param {string[]} types
  * @returns {Promise<any[]>}
  */
@@ -329,56 +329,76 @@ export async function getChannel(userId, token, channelId) {
  * @param {string} userId
  */
 export async function scheduleRecording(token, programId, isSeries = false, userId = '') {
- const endpoint = isSeries ? '/LiveTv/SeriesTimers' : '/LiveTv/Timers';
- 
-    const host = await getHost();
-    let payload;
+	const endpoint = isSeries ? '/LiveTv/SeriesTimers' : '/LiveTv/Timers';
 
-    if (isSeries) {
-        payload = {
-            ProgramId: programId,
-            RecordAnyTime: true,
-            RecordAnyChannel: false,
-            RecordNewOnly: false
-        };
-    } else {
-        // For single recording, we need to fetch program details first to construct a valid TimerInfo
-        if (!userId) {
-             console.warn('UserId missing for single recording schedule, might fail if defaults are insufficient.');
-        }
-        
-        try {
-            const program = await getProgram(userId, token, programId);
-            console.log('Program Details:', JSON.stringify(program));
+	const host = await getHost();
+	   
+	   const defaults = {
+	       PrePaddingSeconds: 0,
+	       PostPaddingSeconds: 0,
+	       IsPrePaddingRequired: false,
+	       IsPostPaddingRequired: false,
+	       Priority: 0,
+	       KeepUntil: 'UntilDeleted'
+	   };
 
-            payload = {
-                ChannelId: program.ChannelId,
-                ProgramId: program.Id,
-                StartDate: program.StartDate,
-                EndDate: program.EndDate,
-                Status: 'New',
-                Name: program.Name,
-                Overview: program.Overview || '',
-                TimerType: 'Program',
-                RecordAnyTime: false
-            };
+	   // Always try to fetch program details to populate ChannelId, etc.
+	   let program = null;
+	   try {
+	       if (userId) {
+	           program = await getProgram(userId, token, programId);
+	           console.log('Program Details:', JSON.stringify(program));
+	       }
+	   } catch (e) {
+	       console.error('Failed to fetch program details for recording', e);
+	   }
 
-            // Only add ServiceName if it exists in the program details
-            if (program.ServiceName) {
-                payload.ServiceName = program.ServiceName;
-            }
-        } catch (e) {
-            console.error('Failed to fetch program details for recording, falling back to minimal payload', e);
-            payload = {
-                ProgramId: programId,
-                Status: 'New',
-                TimerType: 'Program',
-                RecordAnyTime: false
-            };
-        }
-    }
-            
- console.log(`Scheduling recording (${isSeries ? 'Series' : 'Single'}) Payload:`, JSON.stringify(payload));
+	   /** @type {any} */
+	   let payload;
+
+	if (isSeries) {
+		payload = {
+			...defaults,
+			ProgramId: programId,
+			RecordAnyTime: true,
+			RecordAnyChannel: false,
+			RecordNewOnly: false
+		};
+
+		if (program) {
+			if (program.ChannelId) payload.ChannelId = program.ChannelId;
+			if (program.SeriesId) payload.SeriesId = program.SeriesId;
+			if (program.Name) payload.Name = program.Name;
+		}
+	} else {
+		if (!program) {
+			console.warn(
+				'Program details missing for single recording schedule, using minimal payload.'
+			);
+			payload = {
+				...defaults,
+				ProgramId: programId,
+				TimerType: 'Program',
+				RecordAnyTime: false
+			};
+		} else {
+			payload = {
+				...defaults,
+				ChannelId: program.ChannelId,
+				ProgramId: program.Id,
+				StartDate: program.StartDate,
+				EndDate: program.EndDate,
+				Name: program.Name,
+				TimerType: 'Program',
+				RecordAnyTime: false
+			};
+
+			if (program.Overview) payload.Overview = program.Overview;
+			if (program.ServiceName) payload.ServiceName = program.ServiceName;
+		}
+	}
+
+	console.log(`Scheduling recording (${isSeries ? 'Series' : 'Single'}) Payload:`, JSON.stringify(payload));
 
 	const res = await fetch(`${host}${endpoint}`, {
 		method: 'POST',

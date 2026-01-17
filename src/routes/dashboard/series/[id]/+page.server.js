@@ -410,7 +410,7 @@ export const actions = {
             }
 
             // 2. Schedule Series Recording
-            await jellyfin.scheduleRecording(locals.user.token, match.Id, true);
+            await jellyfin.scheduleRecording(locals.user.token, match.Id, true, locals.user.user.Id);
 
             return { success: true };
         } catch (e) {
