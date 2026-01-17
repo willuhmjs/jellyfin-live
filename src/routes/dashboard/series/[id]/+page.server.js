@@ -128,6 +128,7 @@ export async function load({ params, locals }) {
 
     let jellyfinEpisodes = [];
     let isMonitored = false;
+    let seriesTimerId = null;
     let jellyfinSeriesId = jellyfinFallback ? show.id : null;
     let guidePrograms = [];
     let scheduledTimers = [];
@@ -159,6 +160,7 @@ export async function load({ params, locals }) {
                     console.log(`Found Series Timer for ${show.name}, using as Jellyfin Series fallback.`);
                     jellyfinSeries = { Id: timer.SeriesId || timer.Id, Name: timer.Name };
                     isMonitored = true;
+                    seriesTimerId = timer.Id;
                 }
             }
         }
@@ -212,6 +214,7 @@ export async function load({ params, locals }) {
                 const timer = allSeriesTimers.find(t => t.Name === show.name || (t.SeriesId && t.SeriesId === jellyfinSeries.Id));
                 if (timer) {
                     isMonitored = true;
+                    seriesTimerId = timer.Id;
                 }
             }
         } else {
@@ -374,6 +377,7 @@ export async function load({ params, locals }) {
         show,
         seasons,
         isMonitored,
+        seriesTimerId,
         jellyfinSeriesId,
         unmappedRecordings,
         JELLYFIN_HOST
@@ -458,6 +462,27 @@ export const actions = {
         } catch (e) {
             console.error('Failed to cancel recording:', e);
             return fail(500, { message: 'Failed to cancel recording' });
+        }
+    },
+
+    cancelSeries: async ({ request, locals }) => {
+        if (!locals.user) {
+            return fail(401, { message: 'Unauthorized' });
+        }
+
+        const data = await request.formData();
+        const seriesTimerId = data.get('seriesTimerId');
+
+        if (!seriesTimerId) {
+            return fail(400, { message: 'Series Timer ID required' });
+        }
+
+        try {
+            await jellyfin.cancelSeriesTimer(locals.user.token, seriesTimerId);
+            return { success: true, message: 'Series recording cancelled' };
+        } catch (e) {
+            console.error('Failed to cancel series recording:', e);
+            return fail(500, { message: 'Failed to cancel series recording' });
         }
     }
 };

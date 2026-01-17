@@ -1,6 +1,8 @@
 import { redirect } from '@sveltejs/kit';
 import * as jellyfin from '$lib/server/jellyfin';
 
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export async function load({ cookies }) {
 	const sessionId = cookies.get('session_id');
 	const userId = cookies.get('user_id');
@@ -15,12 +17,62 @@ export async function load({ cookies }) {
 		// API returns programs sorted by StartDate.
 		const programs = await jellyfin.getPrograms(userId, sessionId, 5000);
 
+		// Fetch active timers (recordings) and series timers
+		const timers = await jellyfin.getTimers(sessionId);
+		const seriesTimers = await jellyfin.getSeriesTimers(sessionId);
+
+		console.log('--- DEBUG MATCHING ---');
+		if (programs.length > 0) {
+			const programWithSeries = programs.find(p => p.SeriesId);
+			console.log('Sample Program with SeriesId:', JSON.stringify(programWithSeries, null, 2));
+		} else {
+			console.log('No programs found');
+		}
+
+		if (seriesTimers.length > 0) {
+			console.log('Sample Series Timer:', JSON.stringify(seriesTimers[0], null, 2));
+		} else {
+			console.log('No series timers found');
+		}
+		console.log('----------------------');
+
 		// Map programs to channels
 		const channelsWithPrograms = channels.map((channel) => {
 			const channelPrograms = programs
 				.filter((p) => p.ChannelId === channel.Id)
 				// Ensure they are sorted by time
-				.sort((a, b) => new Date(a.StartDate).getTime() - new Date(b.StartDate).getTime());
+				.sort((a, b) => new Date(a.StartDate).getTime() - new Date(b.StartDate).getTime())
+				.map((p) => {
+					// Check if this specific program is being recorded
+					// The API usually relates timers to ProgramId
+					const timer = timers.find((t) => t.ProgramId === p.Id);
+
+					// Check if this series is being recorded
+					let seriesTimer = null;
+
+					// 1. Strict Match by SeriesId
+					if (p.SeriesId) {
+						seriesTimer = seriesTimers.find((st) => st.SeriesId == p.SeriesId);
+					}
+
+					// 2. Fallback Match by Name
+					if (!seriesTimer && p.SeriesName) {
+						const cleanName = (n) => (n ? n.toLowerCase().replace(/[^a-z0-9]/g, '') : '');
+						const targetName = cleanName(p.SeriesName);
+
+						seriesTimer = seriesTimers.find(
+							(st) => cleanName(st.SeriesName) === targetName || cleanName(st.Name) === targetName
+						);
+					}
+
+					return {
+						...p,
+						timerId: timer ? timer.Id : null,
+						isRecording: !!timer,
+						seriesTimerId: seriesTimer ? seriesTimer.Id : null,
+						isSeriesRecording: !!seriesTimer
+					};
+				});
 
 			return {
 				...channel,
@@ -58,6 +110,7 @@ export const actions = {
 
 		try {
 			await jellyfin.scheduleRecording(token, programId.toString(), false, userId);
+			await delay(500); // Allow Jellyfin to process
 			return { success: true };
 		} catch (error) {
 			console.error('Failed to schedule recording:', error);
@@ -80,10 +133,55 @@ export const actions = {
 
 		try {
 			await jellyfin.scheduleRecording(token, programId.toString(), true, userId);
+			await delay(500); // Allow Jellyfin to process
 			return { success: true };
 		} catch (error) {
 			console.error('Failed to schedule series recording:', error);
 			return { success: false, error: 'Failed to schedule series recording' };
+		}
+	},
+	cancelRecording: async ({ cookies, request }) => {
+		const token = cookies.get('session_id');
+		if (!token) {
+			return { success: false, error: 'Not authenticated' };
+		}
+
+		const data = await request.formData();
+		const timerId = data.get('timerId');
+
+		if (!timerId) {
+			return { success: false, error: 'Timer ID is required' };
+		}
+
+		try {
+			await jellyfin.cancelTimer(token, timerId.toString());
+			await delay(500); // Allow Jellyfin to process
+			return { success: true };
+		} catch (error) {
+			console.error('Failed to cancel recording:', error);
+			return { success: false, error: 'Failed to cancel recording' };
+		}
+	},
+	cancelSeriesRecording: async ({ cookies, request }) => {
+		const token = cookies.get('session_id');
+		if (!token) {
+			return { success: false, error: 'Not authenticated' };
+		}
+
+		const data = await request.formData();
+		const seriesTimerId = data.get('seriesTimerId');
+
+		if (!seriesTimerId) {
+			return { success: false, error: 'Series Timer ID is required' };
+		}
+
+		try {
+			await jellyfin.cancelSeriesTimer(token, seriesTimerId.toString());
+			await delay(500); // Allow Jellyfin to process
+			return { success: true };
+		} catch (error) {
+			console.error('Failed to cancel series recording:', error);
+			return { success: false, error: 'Failed to cancel series recording' };
 		}
 	}
 };

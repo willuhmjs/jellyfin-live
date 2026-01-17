@@ -97,7 +97,7 @@ export async function getPrograms(userId, token, limit = 100, searchTerm = null)
 		EnableTotalRecordCount: 'false',
 		ImageTypeLimit: '1',
 		EnableImageTypes: 'Primary',
-		      Fields: 'SeriesId,ProgramId,EpisodeTitle,Name,Overview,SeasonId,ParentIndexNumber,IndexNumber,StartDate,EndDate,ChannelName,PremiereDate'
+		      Fields: 'SeriesId,ProgramId,EpisodeTitle,Name,Overview,SeasonId,ParentIndexNumber,IndexNumber,StartDate,EndDate,ChannelName,PremiereDate,SeriesName'
 	});
 
     if (searchTerm) {
@@ -462,6 +462,28 @@ export async function scheduleRecording(token, programId, isSeries = false, user
     } catch {
         return true;
     }
+}
+
+/**
+ * Cancel a series timer
+ * @param {string} token
+ * @param {string} timerId
+ */
+export async function cancelSeriesTimer(token, timerId) {
+    const host = await getHost();
+    const res = await fetch(`${host}/LiveTv/SeriesTimers/${timerId}`, {
+        method: 'DELETE',
+        headers: {
+            ...headers,
+            'X-Emby-Token': token
+        }
+    });
+
+    if (!res.ok) {
+        throw new Error('Failed to cancel series timer');
+    }
+
+    return true;
 }
 
 /**

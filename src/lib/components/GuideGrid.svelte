@@ -43,12 +43,20 @@
 					{#each item.programs as program}
 						<!-- svelte-ignore a11y-click-events-have-key-events -->
 						<div
-							class="m-1 flex h-20 flex-col justify-center overflow-hidden rounded border border-gray-700 bg-gray-800 p-2 text-xs hover:bg-blue-900/40 cursor-pointer shrink-0"
+							class="m-1 relative flex h-20 shrink-0 flex-col justify-center overflow-hidden rounded border border-gray-700 bg-gray-800 p-2 text-xs hover:bg-blue-900/40 cursor-pointer"
+							class:border-red-500={program.isRecording || program.isSeriesRecording}
+							class:border-2={program.isRecording || program.isSeriesRecording}
 							style="width: {getProgramWidth(program)}px;"
 							on:click={() => handleProgramClick(program)}
 							role="button"
 							tabindex="0"
 						>
+							{#if program.isRecording || program.isSeriesRecording}
+								<div
+									class="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500 shadow-sm"
+									title={program.isSeriesRecording ? 'Series Recording' : 'Recording'}
+								></div>
+							{/if}
 							<div class="truncate font-semibold text-gray-200">{program.Name}</div>
 							<div class="truncate text-gray-500">
 								{formatTime(program.StartDate)} - {formatTime(program.EndDate)}
