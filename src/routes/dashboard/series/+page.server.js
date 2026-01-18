@@ -56,14 +56,28 @@ export async function load({ cookies }) {
         // Add from Recordings
         for (const rec of (recordings || [])) {
             // Series Logic
-            if (rec.SeriesName && !monitoredSeriesMap.has(rec.SeriesName)) {
-                monitoredSeriesMap.set(rec.SeriesName, {
-                    name: rec.SeriesName,
-                    id: rec.SeriesId,
-                    imageTag: rec.SeriesPrimaryImageTag || rec.ImageTags?.Primary,
-                    status: 'Recorded',
-                    isMovie: false
-                });
+            if (rec.SeriesName) {
+                if (!monitoredSeriesMap.has(rec.SeriesName)) {
+                    monitoredSeriesMap.set(rec.SeriesName, {
+                        name: rec.SeriesName,
+                        id: rec.SeriesId,
+                        imageTag: rec.SeriesPrimaryImageTag || rec.ImageTags?.Primary,
+                        status: 'Recorded',
+                        isMovie: false
+                    });
+                } else {
+                    // Update existing entry (from Timers) if it's missing image/ID
+                    const existing = monitoredSeriesMap.get(rec.SeriesName);
+                    const newImageTag = rec.SeriesPrimaryImageTag || rec.ImageTags?.Primary;
+                    
+                    if (!existing.imageTag && newImageTag) {
+                        existing.imageTag = newImageTag;
+                    }
+                    // Prefer actual SeriesId over TimerId/ProgramId if available
+                    if (rec.SeriesId && (!existing.id || existing.id !== rec.SeriesId)) {
+                        existing.id = rec.SeriesId;
+                    }
+                }
             }
             // Movie Logic (No SeriesName)
             else if (!rec.SeriesName && !monitoredSeriesMap.has(rec.Name)) {

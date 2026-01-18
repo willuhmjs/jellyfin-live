@@ -1,29 +1,28 @@
 services:
-  app:
+  jellyfin-live:
     build: .
     ports:
       - "3000:3000"
     volumes:
       - ./data:/app/data
     environment:
-      - DB_PATH=/app/data/dvr.db
-      - DATABASE_URL=postgresql://jellyfin:jellyfin@db:5432/jellyfin_live
+      - DATABASE_URL=postgresql://jellyfin:jellyfin@postgres:5432/jellyfin
       - BODY_SIZE_LIMIT=Infinity
       - ORIGIN=http://localhost:3000
     restart: always
     depends_on:
-      - db
+      - postgres
 
-  db:
-    image: postgres:15-alpine
+  postgres:
+    image: postgres:18
     environment:
       POSTGRES_USER: jellyfin
       POSTGRES_PASSWORD: jellyfin
-      POSTGRES_DB: jellyfin_live
+      POSTGRES_DB: jellyfin
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
 
 volumes:
-  postgres_data:
+  postgres-data:

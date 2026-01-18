@@ -32,21 +32,33 @@ export async function setSetting(key, value) {
 }
 
 export async function getSeriesImage(name) {
-    console.log(`[DB] getSeriesImage called for: ${name}`);
-    const img = await db.seriesImage.findUnique({
-        where: { name }
+    const trimmedName = name.trim();
+    // Try exact match first
+    let img = await db.seriesImage.findUnique({
+        where: { name: trimmedName }
     });
-    const result = img ? img.imageUrl : null;
-    console.log(`[DB] getSeriesImage result for ${name}: ${result}`);
-    return result;
+
+    // If not found, try case-insensitive match
+    if (!img) {
+        img = await db.seriesImage.findFirst({
+            where: {
+                name: {
+                    equals: trimmedName,
+                    mode: 'insensitive'
+                }
+            }
+        });
+    }
+
+    return img ? img.imageUrl : null;
 }
 
 export async function saveSeriesImage(name, url) {
-    console.log(`[DB] saveSeriesImage called for: ${name}, url: ${url}`);
+    const trimmedName = name.trim();
     await db.seriesImage.upsert({
-        where: { name },
+        where: { name: trimmedName },
         update: { imageUrl: url },
-        create: { name, imageUrl: url }
+        create: { name: trimmedName, imageUrl: url }
     });
 }
 

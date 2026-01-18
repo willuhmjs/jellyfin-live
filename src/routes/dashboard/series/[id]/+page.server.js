@@ -32,8 +32,40 @@ export async function load({ params, locals }) {
             const items = await jellyfin.getItems(user.Id, token, [jellyfinId]);
             
             if (items && items.length > 0) {
-                const jShow = items[0];
+                let jShow = items[0];
                 jellyfinFallback = true;
+
+                // Check if this is an Episode or Program and switch to Series if possible
+                if (jShow.SeriesId && jShow.SeriesId !== jShow.Id) {
+                     console.log(`Item ${jShow.Id} is an episode/program of series ${jShow.SeriesId}. Fetching series...`);
+                     try {
+                         const seriesItems = await jellyfin.getItems(user.Id, token, [jShow.SeriesId]);
+                         if (seriesItems && seriesItems.length > 0) {
+                             jShow = seriesItems[0];
+                             console.log(`Switched to Series item: ${jShow.Name} (${jShow.Id})`);
+                         } else {
+                             // Series not in library (e.g. from EPG program), but we have SeriesId
+                             console.warn(`Series ${jShow.SeriesId} not found in library. Using program metadata but forcing Series ID.`);
+                             // We keep jShow as the Program, but we will ensure normalizedShow uses SeriesId
+                             // We might want to patch jShow to look more like a Series
+                             jShow = {
+                                 ...jShow,
+                                 Id: jShow.SeriesId,
+                                 Name: jShow.SeriesName || jShow.Name,
+                                 Type: 'Series' // Pretend it's a series
+                             };
+                         }
+                     } catch (e) {
+                         console.warn(`Failed to fetch series ${jShow.SeriesId}, falling back to program data with SeriesId patch:`, e);
+                         jShow = {
+                             ...jShow,
+                             Id: jShow.SeriesId,
+                             Name: jShow.SeriesName || jShow.Name,
+                             Type: 'Series'
+                         };
+                     }
+                }
+
                 const isMovie = jShow.Type === 'Movie';
                 
                 // Construct "Lite" Show Object using normalization
