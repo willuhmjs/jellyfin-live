@@ -10,21 +10,15 @@
 
 	let headerEl;
 	let gridContainer;
+	let now = new Date();
 
 	// Reactive computations for grid dimensions
 	$: allPrograms = channels.flatMap((c) => c.programs || []);
 
 	// Determine grid start/end based on available programs or fallback to now
-	$: minDate =
-		allPrograms.length > 0
-			? new Date(
-					Math.min(
-						...allPrograms
-							.map((p) => new Date(p.StartDate).getTime())
-							.filter((t) => !isNaN(t))
-					)
-				)
-			: new Date();
+	// User Request: "start the graph / cut it off at the current time"
+	// So we ignore past programs for the start time calculation.
+	$: gridStartTime = new Date(Math.floor(now.getTime() / (30 * 60 * 1000)) * 30 * 60 * 1000);
 
 	$: maxDate =
 		allPrograms.length > 0
@@ -37,9 +31,13 @@
 				)
 			: new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-	// Round down/up to nearest 30 min
-	$: gridStartTime = new Date(Math.floor(minDate.getTime() / (30 * 60 * 1000)) * 30 * 60 * 1000);
-	$: gridEndTime = new Date(Math.ceil(maxDate.getTime() / (30 * 60 * 1000)) * 30 * 60 * 1000);
+	// Ensure grid end time is at least 24 hours from start if data is sparse, or follows maxDate
+	$: gridEndTime = new Date(
+		Math.max(
+			Math.ceil(maxDate.getTime() / (30 * 60 * 1000)) * 30 * 60 * 1000,
+			gridStartTime.getTime() + 24 * 60 * 60 * 1000
+		)
+	);
 
 	// Safety check if dates are invalid
 	$: if (isNaN(gridStartTime.getTime())) {
@@ -57,7 +55,6 @@
 		console.log('[GuideGrid] Debug:', {
 			channelsCount: channels.length,
 			programsCount: allPrograms.length,
-			minDate,
 			gridStartTime,
 			totalWidth
 		});
@@ -72,7 +69,7 @@
 		}
 		return slots;
 	})();
-
+	
 	// Helper to calculate width
 	function getProgramWidth(program) {
 		let durationMinutes = 30; // Default fallback
@@ -98,7 +95,8 @@
 		if (isNaN(start.getTime())) return 0;
 		const diffMs = start - gridStartTime;
 		const diffMinutes = diffMs / 1000 / 60;
-		return Math.max(diffMinutes * PIXELS_PER_MINUTE, 0) + CHANNEL_COLUMN_WIDTH;
+		// Allow negative values so programs starting before grid start are positioned correctly (and clipped)
+		return diffMinutes * PIXELS_PER_MINUTE;
 	}
 
 	function formatTime(dateString) {
@@ -126,6 +124,9 @@
 					headerEl.scrollLeft = viewport.scrollLeft;
 				}
 			});
+
+			// Ensure we start at the beginning (current time)
+			viewport.scrollLeft = 0;
 		}
 	});
 </script>
@@ -147,7 +148,7 @@
 					{#each timeSlots as slot, i}
 						<div
 							class="absolute top-0 bottom-0 flex items-center border-l border-gray-800 pl-2 whitespace-nowrap overflow-hidden text-gray-400"
-							style="width: {30 * PIXELS_PER_MINUTE}px; left: {i * 30 * PIXELS_PER_MINUTE + CHANNEL_COLUMN_WIDTH}px;"
+							style="width: {30 * PIXELS_PER_MINUTE}px; left: {i * 30 * PIXELS_PER_MINUTE}px;"
 						>
 							{formatTime(slot)}
 						</div>
@@ -157,8 +158,8 @@
 		</div>
 
 		<!-- Grid Content -->
-		<div class="flex-1 relative" bind:this={gridContainer}>
-			<VirtualList items={channels} let:item>
+		<div class="flex-1 relative h-full" bind:this={gridContainer}>
+			<VirtualList items={channels} height="100%" itemHeight={96} let:item>
 				<!-- Row Wrapper with explicit width to force horizontal scroll -->
 				<div
 					class="flex h-24 border-b border-gray-800 hover:bg-gray-800/30 transition-colors relative"
@@ -193,8 +194,8 @@
 										title={program.isSeriesRecording ? 'Series Recording' : 'Recording'}
 									></div>
 								{/if}
-								<div class="truncate font-semibold text-gray-200">{program.Name}</div>
-								<div class="truncate text-gray-500">
+								<div class="truncate font-semibold text-gray-200 w-full">{program.Name || 'Unknown Program'}</div>
+								<div class="truncate text-gray-500 w-full">
 									{formatTime(program.StartDate)} - {formatTime(program.EndDate)}
 								</div>
 							</div>
