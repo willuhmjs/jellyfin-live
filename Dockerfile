@@ -12,8 +12,8 @@ COPY . .
 
 RUN npx prisma generate
 RUN pnpm build
-RUN pnpm prune --prod
+# RUN pnpm prune --prod
 
 EXPOSE 3000
 
-CMD ["node", "build"]
+CMD sh -c "npx prisma migrate deploy && node build"
