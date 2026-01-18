@@ -79,6 +79,7 @@ spec:
       containers:
         - name: jellyfin-live
           image: ghcr.io/willuhmjs/jellyfin-live:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 3000
           env:
