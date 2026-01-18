@@ -1,4 +1,5 @@
 import { getSetting } from './db.js';
+import { Agent } from 'undici';
 
 const headers = {
 	'Content-Type': 'application/json',
@@ -6,17 +7,23 @@ const headers = {
 		'MediaBrowser Client="Jellyfin Live", Device="Web", DeviceId="jellyfin-live-web", Version="1.0.0"'
 };
 
+async function getFetchOpts() {
+    const ignoreSsl = await getSetting('ignore_ssl');
+    if (ignoreSsl === 'true') {
+        return {
+            dispatcher: new Agent({
+                connect: {
+                    rejectUnauthorized: false
+                }
+            })
+        };
+    }
+    return {};
+}
+
 export async function getHost() {
     const host = await getSetting('jellyfin_url');
     
-    // Check if we should ignore SSL errors
-    const ignoreSsl = await getSetting('ignore_ssl');
-    if (ignoreSsl === 'true') {
-        process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-    } else {
-        process.env.NODE_TLS_REJECT_UNAUTHORIZED = '1';
-    }
-
     if (!host) {
         // This should be caught by hooks, but just in case
         throw new Error('Jellyfin host not configured');
@@ -32,25 +39,32 @@ export async function getHost() {
  * @returns {Promise<{user: any, accessToken: string}>}
  */
 export async function authenticate(username, password) {
-    const host = await getHost();
-	const res = await fetch(`${host}/Users/AuthenticateByName`, {
-		method: 'POST',
-		headers,
-		body: JSON.stringify({
-			Username: username,
-			Pw: password
-		})
-	});
+    try {
+        const host = await getHost();
+        const opts = await getFetchOpts();
+        const res = await fetch(`${host}/Users/AuthenticateByName`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+                Username: username,
+                Pw: password
+            }),
+            ...opts
+        });
 
-	if (!res.ok) {
-		throw new Error('Authentication failed');
-	}
+        if (!res.ok) {
+            throw new Error('Authentication failed');
+        }
 
-	const data = await res.json();
-	return {
-		user: data.User,
-		accessToken: data.AccessToken
-	};
+        const data = await res.json();
+        return {
+            user: data.User,
+            accessToken: data.AccessToken
+        };
+    } catch (e) {
+        console.error('Authentication error:', e);
+        throw e;
+    }
 }
 
 /**
@@ -60,23 +74,30 @@ export async function authenticate(username, password) {
  * @returns {Promise<any[]>}
  */
 export async function getChannels(userId, token) {
-    const host = await getHost();
-	const res = await fetch(
-		`${host}/LiveTv/Channels?UserId=${userId}&EnableFavoriteSorting=true&SortBy=ChannelName`,
-		{
-			headers: {
-				...headers,
-				'X-Emby-Token': token
-			}
-		}
-	);
+    try {
+        const host = await getHost();
+        const opts = await getFetchOpts();
+        const res = await fetch(
+            `${host}/LiveTv/Channels?UserId=${userId}&EnableFavoriteSorting=true&SortBy=ChannelName`,
+            {
+                headers: {
+                    ...headers,
+                    'X-Emby-Token': token
+                },
+                ...opts
+            }
+        );
 
-	if (!res.ok) {
-		throw new Error('Failed to fetch channels');
-	}
+        if (!res.ok) {
+            throw new Error('Failed to fetch channels');
+        }
 
-	const data = await res.json();
-	return data.Items || [];
+        const data = await res.json();
+        return data.Items || [];
+    } catch (e) {
+        console.error('getChannels error:', e);
+        return [];
+    }
 }
 
 /**
@@ -87,37 +108,44 @@ export async function getChannels(userId, token) {
  * @returns {Promise<any[]>}
  */
 export async function getPrograms(userId, token, limit = 100, searchTerm = null) {
-	// Fetch programs for the next 48 hours to be safe, or just use limit.
-	// We'll use HasAired=false to get future programs.
-	const params = new URLSearchParams({
-		UserId: userId,
-		HasAired: 'false',
-		SortBy: 'StartDate',
-		Limit: limit.toString(),
-		EnableTotalRecordCount: 'false',
-		ImageTypeLimit: '1',
-		EnableImageTypes: 'Primary',
-		      Fields: 'SeriesId,ProgramId,EpisodeTitle,Name,Overview,SeasonId,ParentIndexNumber,IndexNumber,StartDate,EndDate,ChannelName,PremiereDate,SeriesName'
-	});
+    try {
+        // Fetch programs for the next 48 hours to be safe, or just use limit.
+        // We'll use HasAired=false to get future programs.
+        const params = new URLSearchParams({
+            UserId: userId,
+            HasAired: 'false',
+            SortBy: 'StartDate',
+            Limit: limit.toString(),
+            EnableTotalRecordCount: 'false',
+            ImageTypeLimit: '1',
+            EnableImageTypes: 'Primary',
+                  Fields: 'SeriesId,ProgramId,EpisodeTitle,Name,Overview,SeasonId,ParentIndexNumber,IndexNumber,StartDate,EndDate,ChannelName,PremiereDate,SeriesName'
+        });
 
-    if (searchTerm) {
-        params.append('SearchTerm', searchTerm);
+        if (searchTerm) {
+            params.append('SearchTerm', searchTerm);
+        }
+
+        const host = await getHost();
+        const opts = await getFetchOpts();
+        const res = await fetch(`${host}/LiveTv/Programs?${params.toString()}`, {
+            headers: {
+                ...headers,
+                'X-Emby-Token': token
+            },
+            ...opts
+        });
+
+        if (!res.ok) {
+            throw new Error('Failed to fetch programs');
+        }
+
+        const data = await res.json();
+        return data.Items || [];
+    } catch (e) {
+        console.error('getPrograms error:', e);
+        return [];
     }
-
-    const host = await getHost();
-	const res = await fetch(`${host}/LiveTv/Programs?${params.toString()}`, {
-		headers: {
-			...headers,
-			'X-Emby-Token': token
-		}
-	});
-
-	if (!res.ok) {
-		throw new Error('Failed to fetch programs');
-	}
-
-	const data = await res.json();
-	return data.Items || [];
 }
 
 /**
@@ -128,24 +156,31 @@ export async function getPrograms(userId, token, limit = 100, searchTerm = null)
  * @returns {Promise<any>}
  */
 export async function getProgram(userId, token, programId) {
-    const host = await getHost();
-    const params = new URLSearchParams({
-        UserId: userId,
-        Fields: 'People,Studios,CommunityRating,OfficialRating,Genres,Overview,SeriesId,SeasonId,EpisodeTitle,PremiereDate,ChannelId,ProviderIds'
-    });
+    try {
+        const host = await getHost();
+        const opts = await getFetchOpts();
+        const params = new URLSearchParams({
+            UserId: userId,
+            Fields: 'People,Studios,CommunityRating,OfficialRating,Genres,Overview,SeriesId,SeasonId,EpisodeTitle,PremiereDate,ChannelId,ProviderIds'
+        });
 
-    const res = await fetch(`${host}/LiveTv/Programs/${programId}?${params.toString()}`, {
-        headers: {
-            ...headers,
-            'X-Emby-Token': token
+        const res = await fetch(`${host}/LiveTv/Programs/${programId}?${params.toString()}`, {
+            headers: {
+                ...headers,
+                'X-Emby-Token': token
+            },
+            ...opts
+        });
+
+        if (!res.ok) {
+            throw new Error('Failed to fetch program details');
         }
-    });
 
-    if (!res.ok) {
-        throw new Error('Failed to fetch program details');
+        return await res.json();
+    } catch (e) {
+        console.error('getProgram error:', e);
+        return null;
     }
-
-    return await res.json();
 }
 
 /**
@@ -158,26 +193,33 @@ export async function getProgram(userId, token, programId) {
 export async function getItems(userId, token, ids) {
     if (!ids || ids.length === 0) return [];
 
-    const host = await getHost();
-    const params = new URLSearchParams({
-        Ids: ids.join(','),
-        Fields: 'EpisodeTitle,Overview,SeriesName,PremiereDate,PrimaryImageAspectRatio,Genres,Studios,OfficialRating,ProviderIds,DateCreated,CommunityRating,Status,People,BackdropImageTags,ProductionLocations'
-    });
+    try {
+        const host = await getHost();
+        const opts = await getFetchOpts();
+        const params = new URLSearchParams({
+            Ids: ids.join(','),
+            Fields: 'EpisodeTitle,Overview,SeriesName,PremiereDate,PrimaryImageAspectRatio,Genres,Studios,OfficialRating,ProviderIds,DateCreated,CommunityRating,Status,People,BackdropImageTags,ProductionLocations'
+        });
 
-    const res = await fetch(`${host}/Users/${userId}/Items?${params.toString()}`, {
-        headers: {
-            ...headers,
-            'X-Emby-Token': token
+        const res = await fetch(`${host}/Users/${userId}/Items?${params.toString()}`, {
+            headers: {
+                ...headers,
+                'X-Emby-Token': token
+            },
+            ...opts
+        });
+
+        if (!res.ok) {
+            console.warn('Failed to fetch items by IDs');
+            return [];
         }
-    });
 
-    if (!res.ok) {
-        console.warn('Failed to fetch items by IDs');
+        const data = await res.json();
+        return data.Items || [];
+    } catch (e) {
+        console.error('getItems error:', e);
         return [];
     }
-
-    const data = await res.json();
-    return data.Items || [];
 }
 
 /**
@@ -189,33 +231,40 @@ export async function getItems(userId, token, ids) {
  * @returns {Promise<any[]>}
  */
 export async function getEpisodes(userId, token, seriesId, seasonId = null) {
-    const host = await getHost();
-    const params = new URLSearchParams({
-        UserId: userId,
-        SeriesId: seriesId,
-        Fields: 'Overview,PrimaryImageAspectRatio,PremiereDate,RunTimeTicks,ParentIndexNumber,IndexNumber,MediaSources,OfficialRating',
-        SortBy: 'IndexNumber',
-        SortOrder: 'Ascending'
-    });
+    try {
+        const host = await getHost();
+        const opts = await getFetchOpts();
+        const params = new URLSearchParams({
+            UserId: userId,
+            SeriesId: seriesId,
+            Fields: 'Overview,PrimaryImageAspectRatio,PremiereDate,RunTimeTicks,ParentIndexNumber,IndexNumber,MediaSources,OfficialRating',
+            SortBy: 'IndexNumber',
+            SortOrder: 'Ascending'
+        });
 
-    if (seasonId) {
-        params.append('SeasonId', seasonId);
-    }
-
-    // Note: Jellyfin uses /Shows/{Id}/Episodes
-    const res = await fetch(`${host}/Shows/${seriesId}/Episodes?${params.toString()}`, {
-        headers: {
-            ...headers,
-            'X-Emby-Token': token
+        if (seasonId) {
+            params.append('SeasonId', seasonId);
         }
-    });
 
-    if (!res.ok) {
-        throw new Error('Failed to fetch episodes');
+        // Note: Jellyfin uses /Shows/{Id}/Episodes
+        const res = await fetch(`${host}/Shows/${seriesId}/Episodes?${params.toString()}`, {
+            headers: {
+                ...headers,
+                'X-Emby-Token': token
+            },
+            ...opts
+        });
+
+        if (!res.ok) {
+            throw new Error('Failed to fetch episodes');
+        }
+
+        const data = await res.json();
+        return data.Items || [];
+    } catch (e) {
+        console.error('getEpisodes error:', e);
+        return [];
     }
-
-    const data = await res.json();
-    return data.Items || [];
 }
 
 /**
@@ -225,28 +274,35 @@ export async function getEpisodes(userId, token, seriesId, seasonId = null) {
  * @returns {Promise<any[]>}
  */
 export async function getRecordings(userId, token) {
-	const params = new URLSearchParams({
-		UserId: userId,
-		SortBy: 'DateCreated',
-		SortOrder: 'Descending',
-		EnableTotalRecordCount: 'false',
-		Fields: 'Overview,EpisodeTitle,ChannelName,ChannelId,SeriesId,SeriesName,SeasonId,IsSeries,DateCreated,StartDate,EndDate,ImageTags'
-	});
+    try {
+        const params = new URLSearchParams({
+            UserId: userId,
+            SortBy: 'DateCreated',
+            SortOrder: 'Descending',
+            EnableTotalRecordCount: 'false',
+            Fields: 'Overview,EpisodeTitle,ChannelName,ChannelId,SeriesId,SeriesName,SeasonId,IsSeries,DateCreated,StartDate,EndDate,ImageTags'
+        });
 
-    const host = await getHost();
-	const res = await fetch(`${host}/LiveTv/Recordings?${params.toString()}`, {
-		headers: {
-			...headers,
-			'X-Emby-Token': token
-		}
-	});
+        const host = await getHost();
+        const opts = await getFetchOpts();
+        const res = await fetch(`${host}/LiveTv/Recordings?${params.toString()}`, {
+            headers: {
+                ...headers,
+                'X-Emby-Token': token
+            },
+            ...opts
+        });
 
-	if (!res.ok) {
-		throw new Error('Failed to fetch recordings');
-	}
+        if (!res.ok) {
+            throw new Error('Failed to fetch recordings');
+        }
 
-	const data = await res.json();
-	return data.Items || [];
+        const data = await res.json();
+        return data.Items || [];
+    } catch (e) {
+        console.error('getRecordings error:', e);
+        return [];
+    }
 }
 
 /**
@@ -269,33 +325,40 @@ export async function getSeries(userId, token, searchTerm = null) {
  * @returns {Promise<any[]>}
  */
 export async function searchItems(userId, token, searchTerm, types = ['Series']) {
-    const host = await getHost();
-    const params = new URLSearchParams({
-        UserId: userId,
-        Recursive: 'true',
-        IncludeItemTypes: types.join(','),
-        Fields: 'Overview,PrimaryImageAspectRatio,ProviderIds,Type',
-        SortBy: 'SortName',
-        SortOrder: 'Ascending'
-    });
+    try {
+        const host = await getHost();
+        const opts = await getFetchOpts();
+        const params = new URLSearchParams({
+            UserId: userId,
+            Recursive: 'true',
+            IncludeItemTypes: types.join(','),
+            Fields: 'Overview,PrimaryImageAspectRatio,ProviderIds,Type',
+            SortBy: 'SortName',
+            SortOrder: 'Ascending'
+        });
 
-    if (searchTerm) {
-        params.append('SearchTerm', searchTerm);
-    }
-
-    const res = await fetch(`${host}/Users/${userId}/Items?${params.toString()}`, {
-        headers: {
-            ...headers,
-            'X-Emby-Token': token
+        if (searchTerm) {
+            params.append('SearchTerm', searchTerm);
         }
-    });
 
-    if (!res.ok) {
-        throw new Error('Failed to search items');
+        const res = await fetch(`${host}/Users/${userId}/Items?${params.toString()}`, {
+            headers: {
+                ...headers,
+                'X-Emby-Token': token
+            },
+            ...opts
+        });
+
+        if (!res.ok) {
+            throw new Error('Failed to search items');
+        }
+
+        const data = await res.json();
+        return data.Items || [];
+    } catch (e) {
+        console.error('searchItems error:', e);
+        return [];
     }
-
-    const data = await res.json();
-    return data.Items || [];
 }
 
 /**
@@ -306,19 +369,26 @@ export async function searchItems(userId, token, searchTerm, types = ['Series'])
  * @returns {Promise<any>}
  */
 export async function getChannel(userId, token, channelId) {
-    const host = await getHost();
-    const res = await fetch(`${host}/LiveTv/Channels/${channelId}?UserId=${userId}`, {
-        headers: {
-            ...headers,
-            'X-Emby-Token': token
+    try {
+        const host = await getHost();
+        const opts = await getFetchOpts();
+        const res = await fetch(`${host}/LiveTv/Channels/${channelId}?UserId=${userId}`, {
+            headers: {
+                ...headers,
+                'X-Emby-Token': token
+            },
+            ...opts
+        });
+
+        if (!res.ok) {
+            throw new Error('Failed to fetch channel details');
         }
-    });
 
-    if (!res.ok) {
-        throw new Error('Failed to fetch channel details');
+        return await res.json();
+    } catch (e) {
+        console.error('getChannel error:', e);
+        return null;
     }
-
-    return await res.json();
 }
 
 /**
@@ -329,138 +399,145 @@ export async function getChannel(userId, token, channelId) {
  * @param {string} userId
  */
 export async function scheduleRecording(token, programId, isSeries = false, userId = '') {
-	const endpoint = isSeries ? '/LiveTv/SeriesTimers' : '/LiveTv/Timers';
-
-	const host = await getHost();
-	   
-	   const defaults = {
-	       PrePaddingSeconds: 0,
-	       PostPaddingSeconds: 0,
-	       IsPrePaddingRequired: false,
-	       IsPostPaddingRequired: false,
-	       Priority: 0,
-	       KeepUntil: 'UntilDeleted'
-	   };
-
-	   // Always try to fetch program details to populate ChannelId, etc.
-	   let program = null;
-	   try {
-	       if (userId) {
-	           program = await getProgram(userId, token, programId);
-	           console.log('Program Details:', JSON.stringify(program));
-	       }
-	   } catch (e) {
-	       console.error('Failed to fetch program details for recording', e);
-	   }
-
-	   /** @type {any} */
-	   let payload;
-
-	if (isSeries) {
-	       // Try to fetch default series timer payload from server
-	       // Use generic endpoint as specific one might not exist
-	       try {
-	           const defaultsRes = await fetch(`${host}/LiveTv/Timers/Defaults?ProgramId=${programId}`, {
-	                headers: { ...headers, 'X-Emby-Token': token }
-	           });
-	           if (defaultsRes.ok) {
-	               payload = await defaultsRes.json();
-	               console.log('Got series recording defaults:', JSON.stringify(payload));
-	           } else {
-	                console.warn(`Fetch series recording defaults failed: ${defaultsRes.status} ${defaultsRes.statusText}`);
-	           }
-	       } catch (e) {
-	           console.warn('Failed to fetch series recording defaults', e);
-	       }
-
-	       if (!payload) {
-	           payload = {
-	               ...defaults,
-	               ProgramId: programId,
-	               RecordAnyTime: true,
-	               RecordAnyChannel: false,
-	               RecordNewOnly: false
-	           };
-
-	           if (program) {
-	               if (program.ChannelId) payload.ChannelId = program.ChannelId;
-	               if (program.SeriesId) payload.SeriesId = program.SeriesId;
-	               if (program.Name) payload.Name = program.Name;
-	           }
-	       }
-	} else {
-	       // Try to fetch default timer payload from server
-	       try {
-	           const defaultsRes = await fetch(`${host}/LiveTv/Timers/Defaults?ProgramId=${programId}`, {
-	                headers: { ...headers, 'X-Emby-Token': token }
-	           });
-	           if (defaultsRes.ok) {
-	               payload = await defaultsRes.json();
-	               console.log('Got recording defaults:', JSON.stringify(payload));
-	           } else {
-	                console.warn(`Fetch recording defaults failed: ${defaultsRes.status} ${defaultsRes.statusText}`);
-	           }
-	       } catch (e) {
-	           console.warn('Failed to fetch recording defaults', e);
-	       }
-
-	       if (!payload) {
-	           if (!program) {
-	               console.warn(
-	                   'Program details missing for single recording schedule, using minimal payload.'
-	               );
-	               payload = {
-	                   ...defaults,
-	                   ProgramId: programId,
-	                   TimerType: 'Program'
-	               };
-	           } else {
-	               payload = {
-	                   ...defaults,
-	                   ChannelId: program.ChannelId,
-	                   ProgramId: program.Id,
-	                   StartDate: program.StartDate,
-	                   EndDate: program.EndDate,
-	                   Name: program.Name,
-	                   TimerType: 'Program',
-	                   RecordAnyTime: false,
-	                   RecordAnyChannel: false
-	               };
-
-	               if (program.Overview) payload.Overview = program.Overview;
-	               if (program.ServiceName) payload.ServiceName = program.ServiceName;
-	               if (program.EpisodeTitle) payload.EpisodeTitle = program.EpisodeTitle;
-	               if (program.SeriesId) payload.SeriesId = program.SeriesId;
-	               if (program.SeasonId) payload.SeasonId = program.SeasonId;
-	               if (program.ParentIndexNumber) payload.ParentIndexNumber = program.ParentIndexNumber;
-	               if (program.IndexNumber) payload.IndexNumber = program.IndexNumber;
-	           }
-	       }
-	}
-
-	console.log(`Scheduling recording (${isSeries ? 'Series' : 'Single'}) Payload:`, JSON.stringify(payload));
-
-	const res = await fetch(`${host}${endpoint}`, {
-		method: 'POST',
-		headers: {
-			...headers,
-			'X-Emby-Token': token
-		},
-		body: JSON.stringify(payload)
-	});
-
-	if (!res.ok) {
-		const errorText = await res.text();
-		console.error('Jellyfin Schedule Error:', res.status, errorText);
-		// Jellyfin might return 204 No Content for success, or JSON error
-		throw new Error(`Failed to schedule recording: ${res.status} ${errorText}`);
-	}
-    
-    // Sometimes returns created object, sometimes empty
     try {
-        return await res.json();
-    } catch {
-        return true;
+        const endpoint = isSeries ? '/LiveTv/SeriesTimers' : '/LiveTv/Timers';
+        const host = await getHost();
+        const opts = await getFetchOpts();
+        
+        const defaults = {
+            PrePaddingSeconds: 0,
+            PostPaddingSeconds: 0,
+            IsPrePaddingRequired: false,
+            IsPostPaddingRequired: false,
+            Priority: 0,
+            KeepUntil: 'UntilDeleted'
+        };
+
+        // Always try to fetch program details to populate ChannelId, etc.
+        let program = null;
+        try {
+            if (userId) {
+                program = await getProgram(userId, token, programId);
+                console.log('Program Details:', JSON.stringify(program));
+            }
+        } catch (e) {
+            console.error('Failed to fetch program details for recording', e);
+        }
+
+        /** @type {any} */
+        let payload;
+
+        if (isSeries) {
+            // Try to fetch default series timer payload from server
+            try {
+                const defaultsRes = await fetch(`${host}/LiveTv/Timers/Defaults?ProgramId=${programId}`, {
+                    headers: { ...headers, 'X-Emby-Token': token },
+                    ...opts
+                });
+                if (defaultsRes.ok) {
+                    payload = await defaultsRes.json();
+                    console.log('Got series recording defaults:', JSON.stringify(payload));
+                } else {
+                    console.warn(`Fetch series recording defaults failed: ${defaultsRes.status} ${defaultsRes.statusText}`);
+                }
+            } catch (e) {
+                console.warn('Failed to fetch series recording defaults', e);
+            }
+
+            if (!payload) {
+                payload = {
+                    ...defaults,
+                    ProgramId: programId,
+                    RecordAnyTime: true,
+                    RecordAnyChannel: false,
+                    RecordNewOnly: false
+                };
+
+                if (program) {
+                    if (program.ChannelId) payload.ChannelId = program.ChannelId;
+                    if (program.SeriesId) payload.SeriesId = program.SeriesId;
+                    if (program.Name) payload.Name = program.Name;
+                }
+            }
+        } else {
+            // Try to fetch default timer payload from server
+            try {
+                const defaultsRes = await fetch(`${host}/LiveTv/Timers/Defaults?ProgramId=${programId}`, {
+                    headers: { ...headers, 'X-Emby-Token': token },
+                    ...opts
+                });
+                if (defaultsRes.ok) {
+                    payload = await defaultsRes.json();
+                    console.log('Got recording defaults:', JSON.stringify(payload));
+                } else {
+                    console.warn(`Fetch recording defaults failed: ${defaultsRes.status} ${defaultsRes.statusText}`);
+                }
+            } catch (e) {
+                console.warn('Failed to fetch recording defaults', e);
+            }
+
+            if (!payload) {
+                if (!program) {
+                    console.warn(
+                        'Program details missing for single recording schedule, using minimal payload.'
+                    );
+                    payload = {
+                        ...defaults,
+                        ProgramId: programId,
+                        TimerType: 'Program'
+                    };
+                } else {
+                    payload = {
+                        ...defaults,
+                        ChannelId: program.ChannelId,
+                        ProgramId: program.Id,
+                        StartDate: program.StartDate,
+                        EndDate: program.EndDate,
+                        Name: program.Name,
+                        TimerType: 'Program',
+                        RecordAnyTime: false,
+                        RecordAnyChannel: false
+                    };
+
+                    if (program.Overview) payload.Overview = program.Overview;
+                    if (program.ServiceName) payload.ServiceName = program.ServiceName;
+                    if (program.EpisodeTitle) payload.EpisodeTitle = program.EpisodeTitle;
+                    if (program.SeriesId) payload.SeriesId = program.SeriesId;
+                    if (program.SeasonId) payload.SeasonId = program.SeasonId;
+                    if (program.ParentIndexNumber) payload.ParentIndexNumber = program.ParentIndexNumber;
+                    if (program.IndexNumber) payload.IndexNumber = program.IndexNumber;
+                }
+            }
+        }
+
+        console.log(`Scheduling recording (${isSeries ? 'Series' : 'Single'}) Payload:`, JSON.stringify(payload));
+
+        const res = await fetch(`${host}${endpoint}`, {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'X-Emby-Token': token
+            },
+            body: JSON.stringify(payload),
+            ...opts
+        });
+
+        if (!res.ok) {
+            const errorText = await res.text();
+            console.error('Jellyfin Schedule Error:', res.status, errorText);
+            // Jellyfin might return 204 No Content for success, or JSON error
+            throw new Error(`Failed to schedule recording: ${res.status} ${errorText}`);
+        }
+        
+        // Sometimes returns created object, sometimes empty
+        try {
+            return await res.json();
+        } catch {
+            return true;
+        }
+    } catch (e) {
+        console.error('scheduleRecording error:', e);
+        throw e;
     }
 }
 
@@ -470,20 +547,27 @@ export async function scheduleRecording(token, programId, isSeries = false, user
  * @param {string} timerId
  */
 export async function cancelSeriesTimer(token, timerId) {
-    const host = await getHost();
-    const res = await fetch(`${host}/LiveTv/SeriesTimers/${timerId}`, {
-        method: 'DELETE',
-        headers: {
-            ...headers,
-            'X-Emby-Token': token
+    try {
+        const host = await getHost();
+        const opts = await getFetchOpts();
+        const res = await fetch(`${host}/LiveTv/SeriesTimers/${timerId}`, {
+            method: 'DELETE',
+            headers: {
+                ...headers,
+                'X-Emby-Token': token
+            },
+            ...opts
+        });
+
+        if (!res.ok) {
+            throw new Error('Failed to cancel series timer');
         }
-    });
 
-    if (!res.ok) {
-        throw new Error('Failed to cancel series timer');
+        return true;
+    } catch (e) {
+        console.error('cancelSeriesTimer error:', e);
+        throw e;
     }
-
-    return true;
 }
 
 /**
@@ -492,24 +576,31 @@ export async function cancelSeriesTimer(token, timerId) {
  * @returns {Promise<any[]>}
  */
 export async function getTimers(token) {
-    const host = await getHost();
-    const params = new URLSearchParams({
-        Fields: 'SeriesId,ProgramId,EpisodeTitle,Name,Overview,SeasonId,ParentIndexNumber,IndexNumber,StartDate,EndDate,ChannelName,Status,SeriesPrimaryImageTag,SeriesName,PremiereDate,ImageTags'
-    });
+    try {
+        const host = await getHost();
+        const opts = await getFetchOpts();
+        const params = new URLSearchParams({
+            Fields: 'SeriesId,ProgramId,EpisodeTitle,Name,Overview,SeasonId,ParentIndexNumber,IndexNumber,StartDate,EndDate,ChannelName,Status,SeriesPrimaryImageTag,SeriesName,PremiereDate,ImageTags'
+        });
 
-	const res = await fetch(`${host}/LiveTv/Timers?${params.toString()}`, {
-		headers: {
-			...headers,
-			'X-Emby-Token': token
-		}
-	});
+        const res = await fetch(`${host}/LiveTv/Timers?${params.toString()}`, {
+            headers: {
+                ...headers,
+                'X-Emby-Token': token
+            },
+            ...opts
+        });
 
-	if (!res.ok) {
-		throw new Error('Failed to fetch timers');
-	}
+        if (!res.ok) {
+            throw new Error('Failed to fetch timers');
+        }
 
-	const data = await res.json();
-	return data.Items || [];
+        const data = await res.json();
+        return data.Items || [];
+    } catch (e) {
+        console.error('getTimers error:', e);
+        return [];
+    }
 }
 
 /**
@@ -518,20 +609,27 @@ export async function getTimers(token) {
  * @returns {Promise<any[]>}
  */
 export async function getSeriesTimers(token) {
-    const host = await getHost();
-	const res = await fetch(`${host}/LiveTv/SeriesTimers`, {
-		headers: {
-			...headers,
-			'X-Emby-Token': token
-		}
-	});
+    try {
+        const host = await getHost();
+        const opts = await getFetchOpts();
+        const res = await fetch(`${host}/LiveTv/SeriesTimers`, {
+            headers: {
+                ...headers,
+                'X-Emby-Token': token
+            },
+            ...opts
+        });
 
-	if (!res.ok) {
-		throw new Error('Failed to fetch series timers');
-	}
+        if (!res.ok) {
+            throw new Error('Failed to fetch series timers');
+        }
 
-	const data = await res.json();
-	return data.Items || [];
+        const data = await res.json();
+        return data.Items || [];
+    } catch (e) {
+        console.error('getSeriesTimers error:', e);
+        return [];
+    }
 }
 
 /**
@@ -540,24 +638,31 @@ export async function getSeriesTimers(token) {
  * @param {string} recordingId
  */
 export async function deleteRecording(token, recordingId) {
-    // NOTE: This usually deletes the recording FILE.
-    // To cancel a TIMER, you would use DELETE /LiveTv/Timers/{Id}
-    // But the requirements said "deleteRecording", and listed /LiveTv/Recordings/${recordingId}
-    
-    const host = await getHost();
-	const res = await fetch(`${host}/LiveTv/Recordings/${recordingId}`, {
-		method: 'DELETE',
-		headers: {
-			...headers,
-			'X-Emby-Token': token
-		}
-	});
+    try {
+        const host = await getHost();
+        const opts = await getFetchOpts();
+        // NOTE: This usually deletes the recording FILE.
+        // To cancel a TIMER, you would use DELETE /LiveTv/Timers/{Id}
+        // But the requirements said "deleteRecording", and listed /LiveTv/Recordings/${recordingId}
+        
+        const res = await fetch(`${host}/LiveTv/Recordings/${recordingId}`, {
+            method: 'DELETE',
+            headers: {
+                ...headers,
+                'X-Emby-Token': token
+            },
+            ...opts
+        });
 
-	if (!res.ok) {
-		throw new Error('Failed to delete recording');
-	}
-    
-    return true;
+        if (!res.ok) {
+            throw new Error('Failed to delete recording');
+        }
+        
+        return true;
+    } catch (e) {
+        console.error('deleteRecording error:', e);
+        throw e;
+    }
 }
 
 /**
@@ -566,18 +671,25 @@ export async function deleteRecording(token, recordingId) {
  * @param {string} timerId
  */
 export async function cancelTimer(token, timerId) {
-    const host = await getHost();
-    const res = await fetch(`${host}/LiveTv/Timers/${timerId}`, {
-        method: 'DELETE',
-        headers: {
-            ...headers,
-            'X-Emby-Token': token
+    try {
+        const host = await getHost();
+        const opts = await getFetchOpts();
+        const res = await fetch(`${host}/LiveTv/Timers/${timerId}`, {
+            method: 'DELETE',
+            headers: {
+                ...headers,
+                'X-Emby-Token': token
+            },
+            ...opts
+        });
+
+        if (!res.ok) {
+            throw new Error('Failed to cancel timer');
         }
-    });
 
-    if (!res.ok) {
-        throw new Error('Failed to cancel timer');
+        return true;
+    } catch (e) {
+        console.error('cancelTimer error:', e);
+        throw e;
     }
-
-    return true;
 }

@@ -126,48 +126,44 @@ export async function load({ cookies }) {
 
         // --- UPDATED LOGIC START ---
         // Enrich with TVMaze images (Series Only)
-        // We use a normal for-loop instead of Promise.all to avoid rate limiting the TVMaze API (429 Errors)
-        console.log('[Dashboard] Starting sequential TVMaze image fetch...');
-        const seriesWithImages = [];
-        for (const series of monitoredSeries) {
+        console.log('[Dashboard] Starting parallel TVMaze image fetch...');
+        
+        const seriesPromises = monitoredSeries.map(async (series) => {
             if (series.isMovie) {
-                seriesWithImages.push(series);
-                continue;
+                return series;
             }
 
             const cachedImage = db.getSeriesImage(series.name);
-            console.log(`[Dashboard] Cached image for ${series.name}: ${cachedImage}`);
+            // console.log(`[Dashboard] Cached image for ${series.name}: ${cachedImage}`);
             if (cachedImage) {
-                seriesWithImages.push({
+                return {
                     ...series,
                     tvmazeImage: cachedImage
-                });
-                continue;
+                };
             }
 
             try {
-                // Add a small delay to be polite
-                await new Promise(resolve => setTimeout(resolve, 250));
-
                 // Search TVMaze for the show (cached)
                 const results = await tvmaze.searchShows(series.name);
                 // Find exact match or fallback to first result
                 const match = results.find(r => r.show.name.toLowerCase() === series.name.toLowerCase()) || results[0];
 
                 if (match && match.show.image) {
-                    seriesWithImages.push({
+                    return {
                         ...series,
                         tvmazeImage: match.show.image.original || match.show.image.medium
-                    });
+                    };
                 } else {
-                    seriesWithImages.push(series);
+                    return series;
                 }
             } catch (e) {
                 // Silently fail and fallback to Jellyfin image
                 console.warn(`Failed to fetch TVMaze image for ${series.name}:`, e.message);
-                seriesWithImages.push(series);
+                return series;
             }
-        }
+        });
+
+        const seriesWithImages = await Promise.all(seriesPromises);
         // --- UPDATED LOGIC END ---
 
         return {

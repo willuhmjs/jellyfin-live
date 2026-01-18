@@ -48,6 +48,7 @@
 	"dependencies": {
 		"better-sqlite3": "^12.6.0",
 		"lucide-svelte": "^0.562.0",
-		"svelte-virtual-list": "^3.0.1"
+		"svelte-virtual-list": "^3.0.1",
+		"undici": "^7.18.2"
 	}
 }
