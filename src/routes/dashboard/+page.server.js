@@ -6,6 +6,7 @@ import * as db from '$lib/server/db';
 export async function load({ cookies }) {
     const sessionId = cookies.get('session_id');
     const userId = cookies.get('user_id');
+    const showWelcomeBanner = cookies.get('dashboard_welcome_dismissed') !== 'true';
 
     if (!sessionId || !userId) {
         throw redirect(303, '/login');
@@ -170,7 +171,8 @@ export async function load({ cookies }) {
             scheduledRecordings,
             monitoredSeries: seriesWithImages,
             premieres,
-            JELLYFIN_HOST
+            JELLYFIN_HOST,
+            showWelcomeBanner
         };
     } catch (e) {
         console.error('Error fetching dashboard data:', e);
@@ -179,6 +181,7 @@ export async function load({ cookies }) {
             monitoredSeries: [],
             premieres: [],
             JELLYFIN_HOST,
+            showWelcomeBanner,
             error: 'Failed to load dashboard data'
         };
     }
@@ -200,5 +203,15 @@ export const actions = {
             console.error('Search failed:', e);
             return { results: [], error: 'Search failed' };
         }
+    },
+
+    dismissWelcome: async ({ cookies }) => {
+        cookies.set('dashboard_welcome_dismissed', 'true', {
+            path: '/',
+            maxAge: 60 * 60 * 24 * 365, // 1 year
+            httpOnly: false, // Allow client-side access if needed, though we use server actions
+            sameSite: 'strict'
+        });
+        return { success: true };
     }
 };

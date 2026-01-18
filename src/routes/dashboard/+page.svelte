@@ -7,6 +7,9 @@
     export let data;
     export let form;
 
+    let optimisticDismissed = false;
+    $: showWelcome = data.showWelcomeBanner && !optimisticDismissed;
+
     let now = new Date();
 
     onMount(() => {
@@ -111,32 +114,50 @@
 
     {#if !form?.results}
     <!-- Hero / Discovery Section -->
-    <section class="relative rounded-3xl overflow-hidden bg-gradient-to-r from-[#1e3a8a] to-[#0f172a] shadow-2xl border border-white/5">
-        <div class="absolute inset-0 bg-[url('/noise.png')] opacity-20 mix-blend-overlay pointer-events-none"></div> <!-- Optional noise texture if available, otherwise invisible -->
-        <div class="absolute top-0 right-0 p-12 opacity-50 pointer-events-none">
-             <div class="w-64 h-64 bg-accent/20 rounded-full blur-3xl"></div>
-        </div>
-        
-        <div class="relative z-10 p-8 md:p-12 lg:p-16 flex flex-col justify-center min-h-[400px]">
-            <div class="flex items-center gap-2 text-accent-glow font-medium mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M5 2a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0V6H3a1 1 0 010-2h1V3a1 1 0 011-1zm0 5a1 1 0 011 1v1h1a1 1 0 110 2H6v1a1 1 0 11-2 0v-1H3a1 1 0 110-2h1V8a1 1 0 011-1zm5-5a1 1 0 011 1v1h1a1 1 0 010 2h-1v1a1 1 0 01-2 0V6h-1a1 1 0 010-2h1V3a1 1 0 011-1zm0 5a1 1 0 011 1v1h1a1 1 0 110 2h-1v1a1 1 0 11-2 0v-1h-1a1 1 0 110-2h1V8a1 1 0 011-1z" clip-rule="evenodd" />
-                </svg>
-                <span>Your Dashboard</span>
+    {#if showWelcome}
+        <section in:fly={{ y: -20, duration: 500 }} out:fade={{ duration: 200 }} class="relative rounded-3xl overflow-hidden bg-gradient-to-r from-[#1e3a8a] to-[#0f172a] shadow-2xl border border-white/5">
+            <div class="absolute inset-0 bg-[url('/noise.png')] opacity-20 mix-blend-overlay pointer-events-none"></div> <!-- Optional noise texture if available, otherwise invisible -->
+            <div class="absolute top-0 right-0 p-12 opacity-50 pointer-events-none">
+                <div class="w-64 h-64 bg-accent/20 rounded-full blur-3xl"></div>
             </div>
-            <h1 class="text-4xl md:text-6xl font-extrabold text-white mb-6 tracking-tight">
-                Welcome Back
-            </h1>
-            <p class="text-lg md:text-xl text-gray-300 max-w-2xl mb-8 leading-relaxed">
-                Track your favorite shows, manage recordings, and discover new content from your Jellyfin library.
-            </p>
-            
 
-            <div class="absolute bottom-8 right-8 text-xs text-gray-500 bg-black/20 px-3 py-1 rounded-full backdrop-blur-md">
-                Updated {new Date().toLocaleDateString()}
+            <!-- Close Button -->
+            <div class="absolute top-6 right-6 z-20">
+                <form method="POST" action="?/dismissWelcome" use:enhance={() => {
+                    optimisticDismissed = true;
+                    return async ({ update }) => {
+                        await update();
+                    };
+                }}>
+                    <button aria-label="Dismiss Welcome Banner" class="p-2 text-gray-400 hover:text-white bg-black/20 hover:bg-black/40 rounded-full backdrop-blur-sm transition-all duration-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                </form>
             </div>
-        </div>
-    </section>
+            
+            <div class="relative z-10 p-8 md:p-12 lg:p-16 flex flex-col justify-center min-h-[400px]">
+                <div class="flex items-center gap-2 text-accent-glow font-medium mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M5 2a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0V6H3a1 1 0 010-2h1V3a1 1 0 011-1zm0 5a1 1 0 011 1v1h1a1 1 0 110 2H6v1a1 1 0 11-2 0v-1H3a1 1 0 110-2h1V8a1 1 0 011-1zm5-5a1 1 0 011 1v1h1a1 1 0 010 2h-1v1a1 1 0 01-2 0V6h-1a1 1 0 010-2h1V3a1 1 0 011-1zm0 5a1 1 0 011 1v1h1a1 1 0 110 2h-1v1a1 1 0 11-2 0v-1h-1a1 1 0 110-2h1V8a1 1 0 011-1z" clip-rule="evenodd" />
+                    </svg>
+                    <span>Your Dashboard</span>
+                </div>
+                <h1 class="text-4xl md:text-6xl font-extrabold text-white mb-6 tracking-tight">
+                    Welcome Back
+                </h1>
+                <p class="text-lg md:text-xl text-gray-300 max-w-2xl mb-8 leading-relaxed">
+                    Track your favorite shows, manage recordings, and discover new content from your Jellyfin library.
+                </p>
+                
+
+                <div class="absolute bottom-8 right-8 text-xs text-gray-500 bg-black/20 px-3 py-1 rounded-full backdrop-blur-md">
+                    Updated {new Date().toLocaleDateString()}
+                </div>
+            </div>
+        </section>
+    {/if}
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <!-- Main Content Column -->

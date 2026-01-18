@@ -43,7 +43,7 @@
 
             <button
                 type="submit"
-                class="w-full px-4 py-3 bg-accent hover:bg-blue-600 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent transition-all duration-200 font-bold shadow-lg shadow-accent/20"
+                class="w-full rounded bg-blue-600 px-4 py-3 font-bold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
             >
                 Save Settings
             </button>
