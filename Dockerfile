@@ -10,6 +10,7 @@ RUN npm install -g pnpm && pnpm install --frozen-lockfile
 
 COPY . .
 
+RUN npx prisma generate
 RUN pnpm build
 RUN pnpm prune --prod
 
