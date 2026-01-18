@@ -36,6 +36,7 @@
 		"prettier": "^3.7.4",
 		"prettier-plugin-svelte": "^3.4.0",
 		"prettier-plugin-tailwindcss": "^0.7.2",
+		"prisma": "^7.2.0",
 		"svelte": "^5.45.6",
 		"svelte-check": "^4.3.4",
 		"tailwindcss": "^4.1.17",
@@ -46,8 +47,10 @@
 		"vitest-browser-svelte": "^2.0.1"
 	},
 	"dependencies": {
-		"better-sqlite3": "^12.6.0",
+		"@prisma/adapter-pg": "^7.2.0",
+		"@prisma/client": "^7.2.0",
 		"lucide-svelte": "^0.562.0",
+		"pg": "^8.17.1",
 		"svelte-virtual-list": "^3.0.1",
 		"undici": "^7.18.2"
 	}

@@ -134,7 +134,7 @@ export async function load({ cookies }) {
                 return series;
             }
 
-            const cachedImage = db.getSeriesImage(series.name);
+            const cachedImage = await db.getSeriesImage(series.name);
             // console.log(`[Dashboard] Cached image for ${series.name}: ${cachedImage}`);
             if (cachedImage) {
                 return {

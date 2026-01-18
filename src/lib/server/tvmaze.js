@@ -1,19 +1,16 @@
-import { db } from '$lib/server/db';
+import { getTvMazeCache, setTvMazeCache } from '$lib/server/db';
 
 const BASE_URL = 'https://api.tvmaze.com';
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
-const getCacheStmt = db.prepare('SELECT data, updated_at FROM tvmaze_cache WHERE endpoint = ?');
-const setCacheStmt = db.prepare('INSERT OR REPLACE INTO tvmaze_cache (endpoint, data, updated_at) VALUES (?, ?, ?)');
-
 async function fetchFromTvMaze(endpoint, skipCache = false) {
-    const cached = skipCache ? null : getCacheStmt.get(endpoint);
+    const cached = skipCache ? null : await getTvMazeCache(endpoint);
 
     if (cached) {
         const now = Date.now();
         if (now - cached.updated_at < CACHE_DURATION) {
             try {
-                const data = JSON.parse(cached.data);
+                const data = cached.data;
                 if (data) {
                     return data;
                 }
@@ -42,7 +39,7 @@ async function fetchFromTvMaze(endpoint, skipCache = false) {
         const data = JSON.parse(text);
 
         if (data) {
-            setCacheStmt.run(endpoint, JSON.stringify(data), Date.now());
+            await setTvMazeCache(endpoint, data, Date.now());
         } else {
              console.warn('[TVMaze] Fetched data is null/empty, not caching.');
         }
@@ -56,7 +53,7 @@ async function fetchFromTvMaze(endpoint, skipCache = false) {
         if (cached) {
             try {
                 console.warn('Returning stale cache for TVMaze');
-                const staleData = JSON.parse(cached.data);
+                const staleData = cached.data;
                 if (staleData) {
                     return staleData;
                 }
@@ -112,7 +109,7 @@ export async function getShow(id) {
                 }
             }];
 
-            setCacheStmt.run(searchKey, JSON.stringify(searchResult), Date.now());
+            await setTvMazeCache(searchKey, searchResult, Date.now());
             console.log(`[TVMaze] Synthetically cached search result for: ${show.name}`);
         } catch (e) {
             console.warn('[TVMaze] Failed to update synthetic search cache:', e);
@@ -122,7 +119,7 @@ export async function getShow(id) {
     return show;
 }
 
-export function manualCacheSearch(query, show) {
+export async function manualCacheSearch(query, show) {
     if (!query || !show || typeof show.id !== 'number') return;
     
     try {
@@ -141,7 +138,7 @@ export function manualCacheSearch(query, show) {
             }
         }];
 
-        setCacheStmt.run(searchKey, JSON.stringify(searchResult), Date.now());
+        await setTvMazeCache(searchKey, searchResult, Date.now());
         console.log(`[TVMaze] Manually cached search result for query "${query}" -> ${show.name}`);
     } catch (e) {
         console.warn('[TVMaze] Failed to manual cache:', e);

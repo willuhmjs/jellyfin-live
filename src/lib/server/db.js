@@ -1,54 +1,79 @@
-import Database from 'better-sqlite3';
+import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import pg from 'pg';
 import { env } from '$env/dynamic/private';
 
-const dbPath = env.DB_PATH || 'dvr.db';
-const db = new Database(dbPath);
+const globalForPrisma = global;
 
-// Initialize database
-db.exec(`
-    CREATE TABLE IF NOT EXISTS settings (
-        key TEXT PRIMARY KEY,
-        value TEXT
-    );
+const connectionString = env.DATABASE_URL;
+const pool = new pg.Pool({ connectionString });
+const adapter = new PrismaPg(pool);
 
-    CREATE TABLE IF NOT EXISTS tvmaze_cache (
-        endpoint TEXT PRIMARY KEY,
-        data JSON,
-        updated_at INTEGER
-    );
+/** @type {import('@prisma/client').PrismaClient} */
+export const db = globalForPrisma.prisma || new PrismaClient({ adapter });
 
-    CREATE TABLE IF NOT EXISTS series_images (
-        name TEXT PRIMARY KEY,
-        image_url TEXT
-    );
-`);
-
-const getStmt = db.prepare('SELECT value FROM settings WHERE key = ?');
-const setStmt = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)');
-
-const getImageStmt = db.prepare('SELECT image_url FROM series_images WHERE name = ?');
-const setImageStmt = db.prepare('INSERT OR REPLACE INTO series_images (name, image_url) VALUES (?, ?)');
-
-export function getSetting(key) {
-    const row = getStmt.get(key);
-    return row ? row.value : null;
+if (process.env.NODE_ENV !== 'production') {
+    globalForPrisma.prisma = db;
 }
 
-export function setSetting(key, value) {
-    setStmt.run(key, value);
+export async function getSetting(key) {
+    const setting = await db.setting.findUnique({
+        where: { key }
+    });
+    return setting ? setting.value : null;
 }
 
-export function getSeriesImage(name) {
+export async function setSetting(key, value) {
+    await db.setting.upsert({
+        where: { key },
+        update: { value },
+        create: { key, value }
+    });
+}
+
+export async function getSeriesImage(name) {
     console.log(`[DB] getSeriesImage called for: ${name}`);
-    const row = getImageStmt.get(name);
-    const result = row ? row.image_url : null;
+    const img = await db.seriesImage.findUnique({
+        where: { name }
+    });
+    const result = img ? img.imageUrl : null;
     console.log(`[DB] getSeriesImage result for ${name}: ${result}`);
     return result;
 }
 
-export function saveSeriesImage(name, url) {
+export async function saveSeriesImage(name, url) {
     console.log(`[DB] saveSeriesImage called for: ${name}, url: ${url}`);
-    setImageStmt.run(name, url);
+    await db.seriesImage.upsert({
+        where: { name },
+        update: { imageUrl: url },
+        create: { name, imageUrl: url }
+    });
 }
 
-export { db };
+export async function getTvMazeCache(endpoint) {
+    const cache = await db.tvMazeCache.findUnique({
+        where: { endpoint }
+    });
+    
+    if (!cache) return null;
+
+    return {
+        data: cache.data,
+        updated_at: cache.updatedAt.getTime()
+    };
+}
+
+export async function setTvMazeCache(endpoint, data, timestamp) {
+    await db.tvMazeCache.upsert({
+        where: { endpoint },
+        update: {
+            data: data,
+            updatedAt: new Date(timestamp)
+        },
+        create: {
+            endpoint,
+            data: data,
+            updatedAt: new Date(timestamp)
+        }
+    });
+}

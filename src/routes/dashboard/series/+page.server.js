@@ -87,7 +87,7 @@ export async function load({ cookies }) {
                 continue;
             }
 
-            const cachedImage = db.getSeriesImage(series.name);
+            const cachedImage = await db.getSeriesImage(series.name);
             if (cachedImage) {
                 seriesWithImages.push({
                     ...series,

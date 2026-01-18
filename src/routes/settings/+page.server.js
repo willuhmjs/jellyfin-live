@@ -3,8 +3,8 @@ import { fail } from '@sveltejs/kit';
 
 export async function load() {
     return {
-        jellyfin_url: getSetting('jellyfin_url'),
-        ignore_ssl: getSetting('ignore_ssl') === 'true'
+        jellyfin_url: await getSetting('jellyfin_url'),
+        ignore_ssl: (await getSetting('ignore_ssl')) === 'true'
     };
 }
 
@@ -18,8 +18,8 @@ export const actions = {
             return fail(400, { missing: true });
         }
 
-        setSetting('jellyfin_url', jellyfin_url);
-        setSetting('ignore_ssl', ignore_ssl ? 'true' : 'false');
+        await setSetting('jellyfin_url', jellyfin_url);
+        await setSetting('ignore_ssl', ignore_ssl ? 'true' : 'false');
 
         return { success: true };
     }

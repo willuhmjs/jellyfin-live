@@ -177,7 +177,7 @@ export async function load({ params, locals }) {
         if (show && show.image && show.image.original) {
             const saveName = jellyfinSeries ? jellyfinSeries.Name : show.name;
             console.log(`[Series Page] Saving series image for ${saveName}`);
-            db.saveSeriesImage(saveName, show.image.original);
+            await db.saveSeriesImage(saveName, show.image.original);
         }
 
         if (jellyfinSeries) {
