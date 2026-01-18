@@ -16,4 +16,4 @@ RUN pnpm build
 
 EXPOSE 3000
 
-CMD sh -c "npx prisma migrate deploy && node build"
+CMD sh -c "npx prisma db push && node build"
