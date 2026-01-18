@@ -172,7 +172,8 @@ export async function load({ cookies }) {
             monitoredSeries: seriesWithImages,
             premieres,
             JELLYFIN_HOST,
-            showWelcomeBanner
+            showWelcomeBanner,
+            token: sessionId
         };
     } catch (e) {
         console.error('Error fetching dashboard data:', e);

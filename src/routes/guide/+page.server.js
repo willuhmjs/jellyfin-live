@@ -81,7 +81,9 @@ export async function load({ cookies }) {
 		});
 
 		return {
-			channels: channelsWithPrograms
+			channels: channelsWithPrograms,
+		          JELLYFIN_HOST: await jellyfin.getHost(),
+		          token: sessionId
 		};
 	} catch (e) {
 		console.error('Error fetching guide data:', e);

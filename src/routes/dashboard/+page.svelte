@@ -178,7 +178,7 @@
                         <div class="bg-card hover:bg-card-hover border border-white/5 rounded-2xl p-4 flex gap-4 transition-all duration-300 hover:shadow-lg hover:shadow-black/20 group">
                             <div class="relative w-24 h-36 flex-shrink-0 rounded-xl overflow-hidden bg-gray-800 shadow-md">
                                 <img
-                                    src="{data.JELLYFIN_HOST}/Items/{prog.Id}/Images/Primary"
+                                    src="{data.JELLYFIN_HOST}/Items/{prog.Id}/Images/Primary?fillWidth=200&quality=90&api_key={data.token}"
                                     alt={prog.Name}
                                     class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                     on:error={handleImageError}
@@ -224,7 +224,7 @@
                                         <img src={series.tvmazeImage} alt={series.name} class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                                     {:else if series.id && series.imageTag}
                                         <img
-                                            src="{data.JELLYFIN_HOST}/Items/{series.id}/Images/Primary?Tag={series.imageTag}&MaxWidth=400"
+                                            src="{data.JELLYFIN_HOST}/Items/{series.id}/Images/Primary?Tag={series.imageTag}&fillWidth=400&quality=90&api_key={data.token}"
                                             alt={series.name}
                                             class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                             on:error={handleImageError}
@@ -278,14 +278,14 @@
                                 <div class="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-800">
                                     {#if timer.ProgramId}
                                         <img
-                                            src="{data.JELLYFIN_HOST}/Items/{timer.ProgramId}/Images/Primary"
+                                            src="{data.JELLYFIN_HOST}/Items/{timer.ProgramId}/Images/Primary?fillWidth=100&quality=90&api_key={data.token}"
                                             alt={timer.Name}
                                             class="w-full h-full object-cover"
                                             on:error={handleImageError}
                                         />
                                     {:else if timer.SeriesId}
                                             <img
-                                            src="{data.JELLYFIN_HOST}/Items/{timer.SeriesId}/Images/Primary?{timer.SeriesPrimaryImageTag ? `Tag=${timer.SeriesPrimaryImageTag}&` : ''}MaxWidth=100"
+                                            src="{data.JELLYFIN_HOST}/Items/{timer.SeriesId}/Images/Primary?{timer.SeriesPrimaryImageTag ? `Tag=${timer.SeriesPrimaryImageTag}&` : ''}fillWidth=100&quality=90&api_key={data.token}"
                                             alt={timer.Name}
                                             class="w-full h-full object-cover"
                                             on:error={handleImageError}

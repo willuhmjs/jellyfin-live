@@ -182,14 +182,14 @@
                                 <div class="flex-shrink-0 w-20 aspect-video bg-gray-800 rounded overflow-hidden hidden sm:block shadow-sm">
                                     {#if timer.ProgramId}
                                         <img
-                                            src="{data.JELLYFIN_HOST}/Items/{timer.ProgramId}/Images/Primary"
+                                            src="{data.JELLYFIN_HOST}/Items/{timer.ProgramId}/Images/Primary?api_key={data.token}"
                                             alt={timer.Name}
                                             class="w-full h-full object-cover"
                                             on:error={(e) => e.currentTarget.style.display='none'}
                                         />
                                      {:else if timer.SeriesId}
                                         <img
-                                            src="{data.JELLYFIN_HOST}/Items/{timer.SeriesId}/Images/Primary?{timer.SeriesPrimaryImageTag ? `Tag=${timer.SeriesPrimaryImageTag}&` : ''}MaxWidth=200"
+                                            src="{data.JELLYFIN_HOST}/Items/{timer.SeriesId}/Images/Primary?{timer.SeriesPrimaryImageTag ? `Tag=${timer.SeriesPrimaryImageTag}&` : ''}MaxWidth=200&api_key={data.token}"
                                             alt={timer.Name}
                                             class="w-full h-full object-cover"
                                             on:error={(e) => e.currentTarget.style.display='none'}

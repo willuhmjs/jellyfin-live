@@ -68,6 +68,11 @@
 	</div>
 
 	{#if selectedProgram}
-		<ProgramModal program={selectedProgram} on:close={handleClose} />
+		<ProgramModal
+	           program={selectedProgram}
+	           host={data.JELLYFIN_HOST}
+	           token={data.token}
+	           on:close={handleClose}
+	       />
 	{/if}
 </div>

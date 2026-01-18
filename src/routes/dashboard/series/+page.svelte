@@ -71,7 +71,7 @@
                             <img src={series.tvmazeImage} alt={series.name} class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                         {:else if series.id && series.imageTag}
                             <img
-                                src="{data.JELLYFIN_HOST}/Items/{series.id}/Images/Primary?Tag={series.imageTag}&MaxWidth=400"
+                                src="{data.JELLYFIN_HOST}/Items/{series.id}/Images/Primary?Tag={series.imageTag}&MaxWidth=400&api_key={data.token}"
                                 alt={series.name}
                                 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                 on:error={handleImageError}

@@ -412,7 +412,8 @@ export async function load({ params, locals }) {
         seriesTimerId,
         jellyfinSeriesId,
         unmappedRecordings,
-        JELLYFIN_HOST
+        JELLYFIN_HOST,
+        token
     };
 }
 

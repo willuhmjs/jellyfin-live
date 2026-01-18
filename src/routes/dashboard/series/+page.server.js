@@ -60,7 +60,7 @@ export async function load({ cookies }) {
                 monitoredSeriesMap.set(rec.SeriesName, {
                     name: rec.SeriesName,
                     id: rec.SeriesId,
-                    imageTag: rec.ImageTags?.Primary,
+                    imageTag: rec.SeriesPrimaryImageTag || rec.ImageTags?.Primary,
                     status: 'Recorded',
                     isMovie: false
                 });
@@ -118,7 +118,8 @@ export async function load({ cookies }) {
 
         return {
             monitoredSeries: seriesWithImages,
-            JELLYFIN_HOST
+            JELLYFIN_HOST,
+            token: sessionId
         };
     } catch (e) {
         console.error('Error fetching series data:', e);

@@ -4,6 +4,8 @@
     import { toast } from '$lib/stores/toast';
 
 	export let program;
+	   export let host = '';
+	   export let token = '';
 
 	const dispatch = createEventDispatcher();
     
@@ -75,11 +77,22 @@
 <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" on:click|self={close} role="dialog" aria-modal="true" tabindex="-1" on:keydown={(e) => e.key === 'Escape' && close()}>
 	<div class="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-lg border border-gray-700 bg-gray-900 shadow-xl flex flex-col">
         <!-- Header Image & Title -->
-        <div class="relative h-48 sm:h-64 bg-gray-800 shrink-0">
+        <div class="relative h-48 sm:h-64 bg-gray-800 shrink-0 overflow-hidden">
              {#if richDetails?.BackdropImageTags && richDetails.BackdropImageTags[0]}
-                <!-- Ideally use a proper image proxy, but for now assuming standard Jellyfin structure if available, or just fallback to color -->
-                <!-- Since we don't have the host in client easily without passing it, we rely on the grid passing basic images or just style -->
-                <!-- We'll stick to a simple gradient header for now to avoid broken images if host isn't public -->
+                 <img
+                    src="{host}/Items/{richDetails.Id}/Images/Backdrop/0?Tag={richDetails.BackdropImageTags[0]}&maxWidth=1280&quality=80&api_key={token}"
+                    alt={richDetails.Name}
+                    class="absolute inset-0 w-full h-full object-cover"
+                 />
+                 <div class="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent z-10"></div>
+            {:else if richDetails?.ImageTags?.Primary}
+                 <img
+                    src="{host}/Items/{richDetails.Id}/Images/Primary?Tag={richDetails.ImageTags.Primary}&maxWidth=800&quality=80&api_key={token}"
+                    alt={richDetails.Name}
+                    class="absolute inset-0 w-full h-full object-cover"
+                 />
+                 <div class="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent z-10"></div>
+            {:else}
                  <div class="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent z-10"></div>
             {/if}
             
@@ -140,8 +153,11 @@
                                 <div class="flex-shrink-0 w-24 text-center">
                                     <div class="w-20 h-20 mx-auto bg-gray-800 rounded-full mb-2 overflow-hidden flex items-center justify-center text-gray-600">
                                         {#if person.PrimaryImageTag}
-                                             <!-- Placeholder for actor image -->
-                                             <span class="text-xs">IMG</span>
+                                             <img
+                                                src="{host}/Items/{person.Id}/Images/Primary?Tag={person.PrimaryImageTag}&fillWidth=100&quality=90&api_key={token}"
+                                                alt={person.Name}
+                                                class="w-full h-full object-cover"
+                                             />
                                         {:else}
                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" viewBox="0 0 20 20" fill="currentColor">
                                                 <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />

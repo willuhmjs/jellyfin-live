@@ -161,7 +161,7 @@ export async function getProgram(userId, token, programId) {
         const opts = await getFetchOpts();
         const params = new URLSearchParams({
             UserId: userId,
-            Fields: 'People,Studios,CommunityRating,OfficialRating,Genres,Overview,SeriesId,SeasonId,EpisodeTitle,PremiereDate,ChannelId,ProviderIds'
+            Fields: 'People,Studios,CommunityRating,OfficialRating,Genres,Overview,SeriesId,SeasonId,EpisodeTitle,PremiereDate,ChannelId,ProviderIds,ImageTags,BackdropImageTags'
         });
 
         const res = await fetch(`${host}/LiveTv/Programs/${programId}?${params.toString()}`, {
@@ -280,7 +280,7 @@ export async function getRecordings(userId, token) {
             SortBy: 'DateCreated',
             SortOrder: 'Descending',
             EnableTotalRecordCount: 'false',
-            Fields: 'Overview,EpisodeTitle,ChannelName,ChannelId,SeriesId,SeriesName,SeasonId,IsSeries,DateCreated,StartDate,EndDate,ImageTags'
+            Fields: 'Overview,EpisodeTitle,ChannelName,ChannelId,SeriesId,SeriesName,SeasonId,IsSeries,DateCreated,StartDate,EndDate,ImageTags,SeriesPrimaryImageTag'
         });
 
         const host = await getHost();
