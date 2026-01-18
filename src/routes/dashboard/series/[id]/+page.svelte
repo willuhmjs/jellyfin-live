@@ -135,9 +135,9 @@
                     </div>
                 {/if}
 
-                {#if show._embedded?.cast && show._embedded.cast.length > 0}
-                    <div class="mt-6">
-                        <h3 class="text-lg font-semibold text-white mb-3">Cast</h3>
+                <div class="mt-6">
+                    <h3 class="text-lg font-semibold text-white mb-3">Cast</h3>
+                    {#if show._embedded?.cast && show._embedded.cast.length > 0}
                         <div class="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
                             {#each show._embedded.cast as castMember}
                                 <div class="flex-shrink-0 w-24">
@@ -155,8 +155,10 @@
                                 </div>
                             {/each}
                         </div>
-                    </div>
-                {/if}
+                    {:else}
+                        <p class="text-gray-500 opacity-50 text-sm">Cast information unavailable.</p>
+                    {/if}
+                </div>
                 
                 {#if data.jellyfinSeriesId}
                      <div class="inline-flex items-center gap-2 text-green-400 text-sm bg-green-900/20 px-3 py-1 rounded-full">

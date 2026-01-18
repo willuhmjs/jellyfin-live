@@ -1,3 +1,4 @@
+
 <script>
 	import { createEventDispatcher } from 'svelte';
 	import VirtualList from 'svelte-virtual-list';
@@ -9,9 +10,21 @@
 
 	// Helper to calculate width
 	function getProgramWidth(program) {
-		// RunTimeTicks is 10000 ticks per ms
-		const durationMs = program.RunTimeTicks / 10000;
-		const durationMinutes = durationMs / 1000 / 60;
+		let durationMinutes = 30; // Default fallback
+
+		if (program.RunTimeTicks && program.RunTimeTicks > 0) {
+			// RunTimeTicks is 10000 ticks per ms
+			const durationMs = program.RunTimeTicks / 10000;
+			durationMinutes = durationMs / 1000 / 60;
+		} else if (program.StartDate && program.EndDate) {
+			const start = new Date(program.StartDate);
+			const end = new Date(program.EndDate);
+			const diffMs = end - start;
+			if (diffMs > 0) {
+				durationMinutes = diffMs / 1000 / 60;
+			}
+		}
+
 		// Ensure a minimum width so it's clickable
 		return Math.max(durationMinutes * PIXELS_PER_MINUTE, 40);
 	}

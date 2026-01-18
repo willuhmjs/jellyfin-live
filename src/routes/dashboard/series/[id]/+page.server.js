@@ -1,6 +1,7 @@
 import * as tvmaze from '$lib/server/tvmaze';
 import * as jellyfin from '$lib/server/jellyfin';
 import * as db from '$lib/server/db';
+import { normalizeShow } from '$lib/server/normalization';
 import { fail } from '@sveltejs/kit';
 
 export async function load({ params, locals }) {
@@ -17,106 +18,112 @@ export async function load({ params, locals }) {
     const tvmazeId = params.id;
 
     const JELLYFIN_HOST = await jellyfin.getHost();
+    const cleanName = (n) => n ? n.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
     
     // 1. Fetch TVMaze Data
     let show;
     let jellyfinFallback = false;
+    let matchedJellyfinItem = null;
 
-    try {
-        console.log(`Loading series details for ID: ${tvmazeId}`);
-        show = await tvmaze.getShow(tvmazeId);
-        console.log(`Fetched show: ${show ? show.name : 'null'}`);
+    // Helper to attempt Jellyfin Fallback
+    const attemptJellyfinFallback = async (jellyfinId) => {
+        try {
+            console.log(`Attempting Jellyfin fallback for ID: ${jellyfinId}`);
+            const items = await jellyfin.getItems(user.Id, token, [jellyfinId]);
+            
+            if (items && items.length > 0) {
+                const jShow = items[0];
+                jellyfinFallback = true;
+                const isMovie = jShow.Type === 'Movie';
+                
+                // Construct "Lite" Show Object using normalization
+                let normalizedShow = normalizeShow(jShow, 'jellyfin', JELLYFIN_HOST);
+                console.log(`Successfully fell back to Jellyfin ${isMovie ? 'movie' : 'series'}: ${normalizedShow.name}`);
 
-        if (show) {
-             tvmaze.manualCacheSearch(show.name, show);
-        }
-    } catch (e) {
-        console.warn('TVMaze fetch failed, trying Jellyfin fallback:', e);
-        // Do not return error yet, try Jellyfin
-    }
-
-    if (!show) {
-         console.log(`TVMaze failed or returned null. Attempting Jellyfin fallback for ID: ${tvmazeId}`);
-         try {
-             // Treat tvmazeId as potential Jellyfin ID
-             const items = await jellyfin.getItems(user.Id, token, [tvmazeId]);
-             if (items && items.length > 0) {
-                 const jShow = items[0];
-                 jellyfinFallback = true;
-                 const isMovie = jShow.Type === 'Movie';
-                 
-                 // Construct "Lite" Show Object
-                 show = {
-                     id: jShow.Id,
-                     name: jShow.Name,
-                     summary: jShow.Overview,
-                     genres: jShow.Genres || [],
-                     premiered: jShow.PremiereDate ? jShow.PremiereDate.split('T')[0] : null,
-                     rating: { average: jShow.CommunityRating },
-                     contentRating: jShow.OfficialRating,
-                     image: {
-                         original: `${JELLYFIN_HOST}/Items/${jShow.Id}/Images/Primary`,
-                         background: (jShow.BackdropImageTags && jShow.BackdropImageTags.length > 0)
-                            ? `${JELLYFIN_HOST}/Items/${jShow.Id}/Images/Backdrop/0`
-                            : null
-                     },
-                     network: jShow.Studios && jShow.Studios.length > 0 ? { name: jShow.Studios[0].Name } : null,
-                     status: jShow.Status || 'Unknown',
-                     _embedded: {
-                        episodes: [],
-                        cast: (jShow.People || []).map(p => ({
-                            person: {
-                                name: p.Name,
-                                image: p.PrimaryImageTag ? {
-                                    medium: `${JELLYFIN_HOST}/Items/${p.Id}/Images/Primary`
-                                } : null
-                            },
-                            character: {
-                                name: p.Role || p.Type
+                // Attempt to upgrade to full TVMaze object
+                if (!isMovie) {
+                    // 1. Try ProviderId first (Most reliable)
+                    const providerId = jShow.ProviderIds ? (jShow.ProviderIds.TvMaze || jShow.ProviderIds.tvmaze) : null;
+                    if (providerId) {
+                        try {
+                            console.log(`Found TVMaze ProviderId in Jellyfin: ${providerId}, fetching full show data...`);
+                            const fullShow = await tvmaze.getShow(providerId);
+                            if (fullShow) {
+                                console.log(`Upgraded to full TVMaze show via ProviderId: ${fullShow.name}`);
+                                normalizedShow = fullShow;
+                                jellyfinFallback = false;
+                                matchedJellyfinItem = { Id: jShow.Id, Name: jShow.Name };
                             }
-                        }))
-                     },
-                     isJellyfinFallback: true,
-                     isMovie
-                 };
+                        } catch (pidErr) {
+                            console.warn(`Failed to fetch TVMaze show by ProviderId ${providerId}:`, pidErr);
+                        }
+                    }
 
-                 // If it's a Movie, add itself as an episode
-                 if (isMovie) {
-                     show._embedded.episodes = [{
-                         id: jShow.Id,
-                         season: 1,
-                         number: 1,
-                         name: jShow.Name,
-                         airdate: jShow.PremiereDate ? jShow.PremiereDate.split('T')[0] : null,
-                         runtime: (jShow.RunTimeTicks ? Math.round(jShow.RunTimeTicks / 10000000 / 60) : 0),
-                         summary: jShow.Overview,
-                         airstamp: jShow.PremiereDate,
-                         jellyfinId: jShow.Id // It is its own item
-                     }];
-                 }
+                    // 2. Fallback to Name Search if ProviderId failed or missing
+                    if (jellyfinFallback) {
+                        try {
+                            console.log(`Searching TVMaze by name: ${normalizedShow.name}`);
+                            const results = await tvmaze.searchShows(normalizedShow.name);
+                            // Use cleanName for better matching
+                            const match = results.find(r => cleanName(r.show.name) === cleanName(normalizedShow.name)) || results[0];
 
-                 console.log(`Successfully fell back to Jellyfin ${isMovie ? 'movie' : 'series'}: ${show.name}`);
+                            if (match) {
+                                // 1. Try to fetch full TVMaze object (Upgrade)
+                                try {
+                                    const fullShow = await tvmaze.getShow(match.show.id);
+                                    if (fullShow) {
+                                        console.log(`Upgrading "Lite" Jellyfin show to full TVMaze show: ${fullShow.name}`);
+                                        normalizedShow = fullShow;
+                                        jellyfinFallback = false;
+                                        matchedJellyfinItem = { Id: jShow.Id, Name: jShow.Name };
+                                    }
+                                } catch (upgradeErr) {
+                                    console.warn('Failed to upgrade to full TVMaze show, falling back to image update:', upgradeErr);
+                                    
+                                    // 2. Fallback: Just update image if upgrade failed
+                                    if (match.show.image) {
+                                        console.log(`Updating image from TVMaze for: ${normalizedShow.name}`);
+                                        normalizedShow.image = {
+                                            ...normalizedShow.image,
+                                            ...match.show.image
+                                        };
+                                    }
+                                }
+                            } else {
+                                console.log('No matching TVMaze show found by name.');
+                            }
+                        } catch (err) {
+                            console.warn('Failed to search TVMaze for upgrade/image:', err);
+                        }
+                    }
+                }
+                return normalizedShow;
+            }
+        } catch (je) {
+            console.error('Jellyfin fallback failed:', je);
+        }
+        return null;
+    };
 
-                 // Attempt to update image from TVMaze if we only have Jellyfin image
-                 if (!isMovie) {
-                     try {
-                         const results = await tvmaze.searchShows(show.name);
-                         const match = results.find(r => r.show.name.toLowerCase() === show.name.toLowerCase()) || results[0];
-                         if (match && match.show.image) {
-                             console.log(`Updating image from TVMaze for: ${show.name}`);
-                             show.image = {
-                                 ...show.image,
-                                 ...match.show.image
-                             };
-                         }
-                     } catch (err) {
-                         console.warn('Failed to update image from TVMaze:', err);
-                     }
-                 }
-             }
-         } catch (je) {
-             console.error('Jellyfin fallback failed:', je);
-         }
+    const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tvmazeId);
+
+    if (isGuid) {
+        // It's likely a Jellyfin ID, skip direct TVMaze fetch
+        console.log(`ID ${tvmazeId} looks like a GUID, skipping direct TVMaze fetch.`);
+        show = await attemptJellyfinFallback(tvmazeId);
+    } else {
+        // It's likely a TVMaze ID (numeric)
+        try {
+            console.log(`Loading series details for TVMaze ID: ${tvmazeId}`);
+            show = await tvmaze.getShow(tvmazeId);
+            if (show && typeof show.id === 'number') {
+                tvmaze.manualCacheSearch(show.name, show);
+            }
+        } catch (e) {
+            console.warn('TVMaze fetch failed, trying Jellyfin fallback:', e);
+            // Try fallback in case it's a numeric Jellyfin ID (unlikely but possible)
+            show = await attemptJellyfinFallback(tvmazeId);
+        }
     }
 
     if (!show) {
@@ -133,8 +140,6 @@ export async function load({ params, locals }) {
     let guidePrograms = [];
     let scheduledTimers = [];
 
-    // Helper for name matching
-    const cleanName = (n) => n ? n.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
 
     try {
         let jellyfinSeries;
@@ -142,6 +147,9 @@ export async function load({ params, locals }) {
 
         if (jellyfinFallback) {
              jellyfinSeries = { Id: show.id, Name: show.name };
+        } else if (matchedJellyfinItem) {
+             // We upgraded from a fallback, so we know the Jellyfin ID
+             jellyfinSeries = matchedJellyfinItem;
         } else {
             // 2. Search Jellyfin for Series (only if not fallback)
             console.log(`Searching Jellyfin for: ${show.name}`);
@@ -178,7 +186,7 @@ export async function load({ params, locals }) {
             }
             
             // Explicitly cache the TVMaze result under the JELLYFIN series name
-            if (show) {
+            if (show && typeof show.id === 'number') {
                 tvmaze.manualCacheSearch(jellyfinSeries.Name, show);
             }
 
@@ -296,6 +304,26 @@ export async function load({ params, locals }) {
         return false;
     });
 
+    // Populate Virtual Episodes from Timers if no episodes exist
+    if ((!show._embedded || !show._embedded.episodes || show._embedded.episodes.length === 0) && showTimers.length > 0) {
+        if (!show._embedded) show._embedded = {};
+        
+        console.log(`No episodes found. Creating ${showTimers.length} virtual episodes from timers.`);
+        
+        show._embedded.episodes = showTimers.map(t => ({
+            id: t.Id,
+            name: t.EpisodeTitle || t.Name || 'Scheduled Program',
+            season: t.ParentIndexNumber || 1,
+            number: t.IndexNumber || 0,
+            airstamp: t.StartDate,
+            airdate: t.StartDate ? t.StartDate.split('T')[0] : null,
+            runtime: t.RunTimeTicks ? Math.round(t.RunTimeTicks / 10000000 / 60) : 0,
+            status: 'scheduled',
+            summary: t.Overview || 'Scheduled Recording',
+            image: null
+        }));
+    }
+
     if (show._embedded && show._embedded.episodes) {
         for (const ep of show._embedded.episodes) {
             const seasonNum = ep.season;
@@ -350,6 +378,10 @@ export async function load({ params, locals }) {
                  if (matchName(ep.name, t.Name, t.EpisodeTitle)) return true;
                  // Match by PremiereDate (Original Air Date)
                  if (ep.airdate && t.PremiereDate && t.PremiereDate.startsWith(ep.airdate)) return true;
+                 // Match by Air Date vs Timer Start Date (for daily shows or scheduling exact airings)
+                 if (ep.airstamp && t.StartDate && t.StartDate === ep.airstamp) return true;
+                 // Fallback: Check if Timer Date matches Air Date day (helpful for daily shows where times might drift slightly)
+                 if (ep.airdate && t.StartDate && t.StartDate.startsWith(ep.airdate)) return true;
                  return false;
             });
 

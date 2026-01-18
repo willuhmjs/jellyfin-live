@@ -6,8 +6,8 @@ const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 const getCacheStmt = db.prepare('SELECT data, updated_at FROM tvmaze_cache WHERE endpoint = ?');
 const setCacheStmt = db.prepare('INSERT OR REPLACE INTO tvmaze_cache (endpoint, data, updated_at) VALUES (?, ?, ?)');
 
-async function fetchFromTvMaze(endpoint) {
-    const cached = getCacheStmt.get(endpoint);
+async function fetchFromTvMaze(endpoint, skipCache = false) {
+    const cached = skipCache ? null : getCacheStmt.get(endpoint);
 
     if (cached) {
         const now = Date.now();
@@ -70,13 +70,30 @@ async function fetchFromTvMaze(endpoint) {
 
 export async function searchShows(query) {
     const encodedQuery = encodeURIComponent(query);
-    return fetchFromTvMaze(`/search/shows?q=${encodedQuery}`);
+    const endpoint = `/search/shows?q=${encodedQuery}`;
+    let results = await fetchFromTvMaze(endpoint);
+
+    let filtered = [];
+    if (Array.isArray(results)) {
+        filtered = results.filter(r => r.show && typeof r.show.id === 'number');
+    }
+
+    // If cache returned results but they were all filtered out (invalid), try fresh
+    if (Array.isArray(results) && results.length > 0 && filtered.length === 0) {
+        console.warn(`[TVMaze] Cached results for "${query}" were invalid. Fetching fresh...`);
+        results = await fetchFromTvMaze(endpoint, true);
+        if (Array.isArray(results)) {
+            filtered = results.filter(r => r.show && typeof r.show.id === 'number');
+        }
+    }
+
+    return filtered;
 }
 
 export async function getShow(id) {
     const show = await fetchFromTvMaze(`/shows/${id}?embed=episodes`);
     
-    if (show && show.name) {
+    if (show && show.name && typeof show.id === 'number') {
         try {
             // Synthetically cache the search result for this show's name
             // This helps the Dashboard find the image without hitting the search API
@@ -106,7 +123,7 @@ export async function getShow(id) {
 }
 
 export function manualCacheSearch(query, show) {
-    if (!query || !show) return;
+    if (!query || !show || typeof show.id !== 'number') return;
     
     try {
         const cleanQuery = query.trim();
