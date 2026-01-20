@@ -12,17 +12,28 @@
 
 	let headerEl;
 	let gridContainer;
+	// Use a static reference for grid start to prevent jumping when time updates
+	const gridReferenceTime = new Date();
 	let now = new Date();
 	let scrollX = 0;
 	let viewportWidth = 0;
 	let resizeObserver;
+	let nowInterval;
 
 	// Reactive computations for grid dimensions
 	$: allPrograms = channels.flatMap((c) => c.programs || []);
 
 	// Determine grid start/end based on available programs or fallback to now
 	// User Request: "enable the user to scroll left up to 3 hours"
-	$: gridStartTime = new Date(Math.floor(now.getTime() / (30 * 60 * 1000)) * 30 * 60 * 1000 - 3 * 60 * 60 * 1000);
+	$: gridStartTime = new Date(
+		Math.floor(gridReferenceTime.getTime() / (30 * 60 * 1000)) * 30 * 60 * 1000 -
+			3 * 60 * 60 * 1000
+	);
+
+	// Current 30-min slot for the "alarm" column
+	$: currentSlotStart = new Date(Math.floor(now.getTime() / (30 * 60 * 1000)) * 30 * 60 * 1000);
+	$: currentSlotLeft =
+		((currentSlotStart - gridStartTime) / 1000 / 60) * PIXELS_PER_MINUTE;
 
 	$: maxDate =
 		allPrograms.length > 0
@@ -112,14 +123,6 @@
 		dispatch('select', program);
 	}
 
-	function isLive(program) {
-		if (!program.StartDate || !program.EndDate) return false;
-		const start = new Date(program.StartDate);
-		const end = new Date(program.EndDate);
-		const current = new Date();
-		return current >= start && current < end;
-	}
-
 	function isTextRightAligned(program, currentScrollX) {
 		if (!program) return false;
 		const left = getProgramLeft(program);
@@ -139,6 +142,11 @@
 	}
 
 	onMount(() => {
+		// Update 'now' every minute to keep the red column correct
+		nowInterval = setInterval(() => {
+			now = new Date();
+		}, 60000);
+
 		// Allow DOM to settle
 		setTimeout(() => {
 			// Sync horizontal scroll from virtual list to header
@@ -196,6 +204,7 @@
 
 	onDestroy(() => {
 		if (resizeObserver) resizeObserver.disconnect();
+		if (nowInterval) clearInterval(nowInterval);
 	});
 </script>
 
@@ -213,6 +222,12 @@
 				></div>
 				<!-- Time Slots -->
 				<div class="relative flex-1 h-full">
+					<!-- Alarm Column in Header -->
+					<div
+						class="absolute top-0 bottom-0 alarm-flash z-10 pointer-events-none border-x border-red-500/30"
+						style="width: {30 * PIXELS_PER_MINUTE}px; left: {currentSlotLeft}px;"
+					></div>
+
 					{#each timeSlots as slot, i}
 						<div
 							class="absolute top-0 bottom-0 flex items-center border-l border-gray-800 pl-2 whitespace-nowrap overflow-hidden text-gray-400"
@@ -255,6 +270,12 @@
 
 					<!-- Timeline Programs (Absolute positioning) -->
 					<div class="relative flex-1 h-full overflow-hidden">
+						<!-- Alarm Column in Row -->
+						<div
+							class="absolute top-0 bottom-0 alarm-flash z-30 pointer-events-none border-x border-red-500/30"
+							style="width: {30 * PIXELS_PER_MINUTE}px; left: {currentSlotLeft}px;"
+						></div>
+
 						{#each item.programs as program}
 							<!-- svelte-ignore a11y-click-events-have-key-events -->
 							<div
@@ -284,15 +305,6 @@
 								<div class="truncate text-gray-500 w-full">
 									{formatTime(program.StartDate)} - {formatTime(program.EndDate)}
 								</div>
-
-								{#if isLive(program)}
-									<div
-										class="absolute right-1 bottom-1 z-20 rounded bg-red-600 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-sm tracking-wider"
-										title="Currently Live"
-									>
-										LIVE
-									</div>
-								{/if}
 							</div>
 						{/each}
 						{#if !item.programs || item.programs.length === 0}
@@ -326,5 +338,19 @@
 	:global(.svelte-virtual-list-contents) {
 		width: fit-content;
 		min-width: 100%;
+	}
+
+	@keyframes alarm-flash {
+		0%,
+		100% {
+			background-color: rgba(220, 38, 38, 0.1);
+		}
+		50% {
+			background-color: rgba(220, 38, 38, 0.3);
+		}
+	}
+
+	.alarm-flash {
+		animation: alarm-flash 2s infinite ease-in-out;
 	}
 </style>
