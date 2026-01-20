@@ -266,36 +266,52 @@
         <div class="space-y-8">
             <!-- Scheduled Recordings Widget -->
             <div id="scheduled" class="bg-card border border-white/5 rounded-2xl p-6 shadow-xl sticky top-8 scroll-mt-24">
-                <h2 class="text-xl font-bold text-white mb-6 flex items-center justify-between">
-                    <span>Scheduled</span>
-                    <span class="text-xs font-bold text-black bg-white px-2 py-1 rounded-full">{data.scheduledRecordings.length}</span>
-                </h2>
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-bold text-white">Scheduled</h2>
+                    <span class="flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 text-xs font-bold text-black bg-white rounded-full">
+                        {data.scheduledRecordings.length}
+                    </span>
+                </div>
                 
                 {#if data.scheduledRecordings.length > 0}
                     <div class="space-y-4 max-h-[500px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
                         {#each data.scheduledRecordings as timer}
-                            <div class="flex gap-3 group">
-                                <div class="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-800">
-                                    {#if timer.ProgramId}
-                                        <img
-                                            src="{data.JELLYFIN_HOST}/Items/{timer.ProgramId}/Images/Primary?fillWidth=100&quality=90&api_key={data.token}"
-                                            alt={timer.Name}
-                                            class="w-full h-full object-cover"
-                                            on:error={handleImageError}
-                                        />
-                                    {:else if timer.SeriesId}
-                                            <img
-                                            src="{data.JELLYFIN_HOST}/Items/{timer.SeriesId}/Images/Primary?{timer.SeriesPrimaryImageTag ? `Tag=${timer.SeriesPrimaryImageTag}&` : ''}fillWidth=100&quality=90&api_key={data.token}"
-                                            alt={timer.Name}
-                                            class="w-full h-full object-cover"
-                                            on:error={handleImageError}
-                                        />
-                                    {:else}
-                                        <div class="w-full h-full flex items-center justify-center text-gray-600">
+                            <div class="flex gap-4 group items-center">
+                                <div class="relative w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden flex-shrink-0 bg-gray-800 border border-white/5">
+                                    <!-- 1. Generic Fallback Icon (Bottom layer) - Hidden if Channel Logo is present to avoid visual clutter -->
+                                    {#if !timer.ChannelId}
+                                        <div class="absolute inset-0 flex items-center justify-center text-gray-600">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                             </svg>
                                         </div>
+                                    {/if}
+
+                                    <!-- 2. Channel Logo (Middle layer) -->
+                                    {#if timer.ChannelId}
+                                        <img
+                                            src="{data.JELLYFIN_HOST}/Items/{timer.ChannelId}/Images/Primary?fillWidth=100&quality=90&api_key={data.token}"
+                                            alt={timer.ChannelName}
+                                            class="absolute inset-0 w-full h-full object-contain p-2 transition-opacity duration-300 text-transparent"
+                                            on:error={(e) => e.currentTarget.style.display = 'none'}
+                                        />
+                                    {/if}
+
+                                    <!-- 3. Program/Series Image (Top layer) -->
+                                    {#if timer.ProgramId}
+                                        <img
+                                            src="{data.JELLYFIN_HOST}/Items/{timer.ProgramId}/Images/Primary?fillWidth=100&quality=90&api_key={data.token}"
+                                            alt={timer.Name}
+                                            class="absolute inset-0 w-full h-full object-cover text-transparent"
+                                            on:error={handleImageError}
+                                        />
+                                    {:else if timer.SeriesId}
+                                        <img
+                                            src="{data.JELLYFIN_HOST}/Items/{timer.SeriesId}/Images/Primary?{timer.SeriesPrimaryImageTag ? `Tag=${timer.SeriesPrimaryImageTag}&` : ''}fillWidth=100&quality=90&api_key={data.token}"
+                                            alt={timer.Name}
+                                            class="absolute inset-0 w-full h-full object-cover text-transparent"
+                                            on:error={handleImageError}
+                                        />
                                     {/if}
                                 </div>
                                 <div class="flex-1 min-w-0 flex flex-col justify-center">

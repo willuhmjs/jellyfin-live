@@ -62,7 +62,12 @@
 			</div>
 		{:else}
 			<div class="absolute inset-0">
-				<GuideGrid channels={filteredChannels} on:select={handleSelect} />
+				<GuideGrid
+					channels={filteredChannels}
+					host={data.JELLYFIN_HOST}
+					token={data.token}
+					on:select={handleSelect}
+				/>
 			</div>
 		{/if}
 	</div>

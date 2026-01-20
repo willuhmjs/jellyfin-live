@@ -3,6 +3,8 @@
 	import VirtualList from 'svelte-virtual-list';
 
 	export let channels = [];
+	export let host = '';
+	export let token = '';
 
 	const dispatch = createEventDispatcher();
 	const PIXELS_PER_MINUTE = 4; // 1 min = 4px
@@ -167,10 +169,20 @@
 				>
 					<!-- Channel Info (Left Column - Sticky) -->
 					<div
-						class="sticky left-0 z-20 flex w-24 shrink-0 flex-col items-center justify-center border-r border-gray-800 bg-gray-900 p-2 text-center"
+						class="sticky left-0 z-20 flex w-24 shrink-0 flex-col items-center justify-center border-r border-gray-800 bg-gray-900 p-1 text-center gap-1"
 					>
-						<div class="text-xl font-bold text-gray-200">{item.ChannelNumber}</div>
-						<div class="truncate text-xs text-gray-400 w-full" title={item.Name}>
+						{#if host && item.Id}
+							<div class="relative h-10 w-full flex items-center justify-center">
+								<img
+									src="{host}/Items/{item.Id}/Images/Primary?fillWidth=100&quality=90&api_key={token}"
+									alt={item.Name}
+									class="max-h-full max-w-full object-contain"
+									on:error={(e) => (e.currentTarget.style.display = 'none')}
+								/>
+							</div>
+						{/if}
+						<div class="font-bold text-gray-200 leading-tight">{item.ChannelNumber}</div>
+						<div class="truncate text-[10px] text-gray-400 w-full leading-tight" title={item.Name}>
 							{item.Name}
 						</div>
 					</div>
