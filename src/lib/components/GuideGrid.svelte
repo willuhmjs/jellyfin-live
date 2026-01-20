@@ -1,6 +1,5 @@
 <script>
 	import { createEventDispatcher, onMount, onDestroy } from 'svelte';
-	import VirtualList from 'svelte-virtual-list';
 
 	export let channels = [];
 	export let host = '';
@@ -19,6 +18,33 @@
 	let viewportWidth = 0;
 	let resizeObserver;
 	let nowInterval;
+
+	let visibleChannels = [];
+	let renderTimer;
+
+	function startProgressiveRender() {
+		if (renderTimer) clearTimeout(renderTimer);
+
+		const process = () => {
+			if (visibleChannels.length >= channels.length) return;
+
+			const nextBatchSize = 50;
+			const currentLen = visibleChannels.length;
+			const nextChunk = channels.slice(currentLen, currentLen + nextBatchSize);
+
+			if (nextChunk.length > 0) {
+				visibleChannels = [...visibleChannels, ...nextChunk];
+				renderTimer = setTimeout(process, 50);
+			}
+		};
+
+		renderTimer = setTimeout(process, 50);
+	}
+
+	$: if (channels) {
+		visibleChannels = channels.slice(0, 30);
+		startProgressiveRender();
+	}
 
 	// Reactive computations for grid dimensions
 	$: allPrograms = channels.flatMap((c) => c.programs || []);
@@ -207,6 +233,7 @@
 	onDestroy(() => {
 		if (resizeObserver) resizeObserver.disconnect();
 		if (nowInterval) clearInterval(nowInterval);
+		if (renderTimer) clearTimeout(renderTimer);
 	});
 </script>
 
@@ -257,79 +284,81 @@
 
 		<!-- Grid Content -->
 		<div class="flex-1 relative h-full" bind:this={gridContainer}>
-			<VirtualList items={channels} height="100%" itemHeight={96} let:item>
-				<!-- Row Wrapper with explicit width to force horizontal scroll -->
-				<div
-					class="flex h-24 border-b border-gray-800 hover:bg-gray-800/30 transition-colors relative"
-					style="min-width: {totalWidth + CHANNEL_COLUMN_WIDTH}px;"
-				>
-					<!-- Channel Info (Left Column - Sticky) -->
+			<div class="viewport h-full w-full overflow-auto">
+				{#each visibleChannels as item}
+					<!-- Row Wrapper with explicit width to force horizontal scroll -->
 					<div
-						class="sticky left-0 z-50 flex w-24 shrink-0 flex-col items-center justify-center border-r border-gray-800 bg-gray-900 p-1 text-center gap-1"
+						class="flex h-24 border-b border-gray-800 hover:bg-gray-800/30 transition-colors relative"
+						style="min-width: {totalWidth + CHANNEL_COLUMN_WIDTH}px;"
 					>
-						{#if host && item.Id}
-							<div class="relative h-10 w-full flex items-center justify-center">
-								<img
-									src="{host}/Items/{item.Id}/Images/Primary?fillWidth=100&quality=90&api_key={token}"
-									alt={item.Name}
-									class="max-h-full max-w-full object-contain"
-									on:error={(e) => (e.currentTarget.style.display = 'none')}
-								/>
+						<!-- Channel Info (Left Column - Sticky) -->
+						<div
+							class="sticky left-0 z-50 flex w-24 shrink-0 flex-col items-center justify-center border-r border-gray-800 bg-gray-900 p-1 text-center gap-1"
+						>
+							{#if host && item.Id}
+								<div class="relative h-10 w-full flex items-center justify-center">
+									<img
+										src="{host}/Items/{item.Id}/Images/Primary?fillWidth=100&quality=90&api_key={token}"
+										alt={item.Name}
+										class="max-h-full max-w-full object-contain"
+										on:error={(e) => (e.currentTarget.style.display = 'none')}
+									/>
+								</div>
+							{/if}
+							<div class="font-bold text-gray-200 leading-tight">{item.ChannelNumber}</div>
+							<div class="truncate text-[10px] text-gray-400 w-full leading-tight" title={item.Name}>
+								{item.Name}
 							</div>
-						{/if}
-						<div class="font-bold text-gray-200 leading-tight">{item.ChannelNumber}</div>
-						<div class="truncate text-[10px] text-gray-400 w-full leading-tight" title={item.Name}>
-							{item.Name}
+						</div>
+
+						<!-- Timeline Programs (Absolute positioning) -->
+						<div class="relative flex-1 h-full overflow-hidden">
+							<!-- Alarm Column in Row -->
+							<div
+								class="absolute top-0 bottom-0 alarm-flash z-30 pointer-events-none border-x border-red-500/30"
+								style="width: {30 * PIXELS_PER_MINUTE}px; left: {currentSlotLeft}px;"
+							></div>
+
+							{#each item.programs as program}
+								<!-- svelte-ignore a11y-click-events-have-key-events -->
+								<div
+									class="absolute top-1 bottom-1 flex flex-col justify-center overflow-hidden rounded border border-gray-700 bg-gray-800 p-1 text-xs hover:bg-blue-900/40 cursor-pointer transition-colors z-10"
+									class:border-red-500={program.isRecording || program.isSeriesRecording}
+									class:border-2={program.isRecording || program.isSeriesRecording}
+									class:text-right={isTextRightAligned(program, scrollX)}
+									style="width: {getProgramWidth(program) - 4}px; left: {getProgramLeft(program)}px;"
+									on:click={() => handleProgramClick(program)}
+									role="button"
+									tabindex="0"
+								>
+									{#if program.isRecording || program.isSeriesRecording}
+										<div
+											class="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500 shadow-sm"
+											title={program.isSeriesRecording ? 'Series Recording' : 'Recording'}
+										></div>
+									{/if}
+									<div class="truncate font-semibold text-gray-200 w-full" title={program.Name}>
+										{program.Name || 'Unknown Program'}
+									</div>
+									{#if program.EpisodeTitle && program.EpisodeTitle !== program.Name}
+										<div class="truncate text-gray-400 w-full" title={program.EpisodeTitle}>
+											{program.EpisodeTitle}
+										</div>
+									{/if}
+									<div class="truncate text-gray-500 w-full">
+										{formatTime(program.StartDate)} - {formatTime(program.EndDate)}
+									</div>
+								</div>
+							{/each}
+							{#if !item.programs || item.programs.length === 0}
+								<div class="flex h-full items-center px-4 text-gray-500 italic">
+									No program data
+								</div>
+							{/if}
 						</div>
 					</div>
-
-					<!-- Timeline Programs (Absolute positioning) -->
-					<div class="relative flex-1 h-full overflow-hidden">
-						<!-- Alarm Column in Row -->
-						<div
-							class="absolute top-0 bottom-0 alarm-flash z-30 pointer-events-none border-x border-red-500/30"
-							style="width: {30 * PIXELS_PER_MINUTE}px; left: {currentSlotLeft}px;"
-						></div>
-
-						{#each item.programs as program}
-							<!-- svelte-ignore a11y-click-events-have-key-events -->
-							<div
-								class="absolute top-1 bottom-1 flex flex-col justify-center overflow-hidden rounded border border-gray-700 bg-gray-800 p-1 text-xs hover:bg-blue-900/40 cursor-pointer transition-colors z-10"
-								class:border-red-500={program.isRecording || program.isSeriesRecording}
-								class:border-2={program.isRecording || program.isSeriesRecording}
-								class:text-right={isTextRightAligned(program, scrollX)}
-								style="width: {getProgramWidth(program) - 4}px; left: {getProgramLeft(program)}px;"
-								on:click={() => handleProgramClick(program)}
-								role="button"
-								tabindex="0"
-							>
-								{#if program.isRecording || program.isSeriesRecording}
-									<div
-										class="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500 shadow-sm"
-										title={program.isSeriesRecording ? 'Series Recording' : 'Recording'}
-									></div>
-								{/if}
-								<div class="truncate font-semibold text-gray-200 w-full" title={program.Name}>
-									{program.Name || 'Unknown Program'}
-								</div>
-								{#if program.EpisodeTitle && program.EpisodeTitle !== program.Name}
-									<div class="truncate text-gray-400 w-full" title={program.EpisodeTitle}>
-										{program.EpisodeTitle}
-									</div>
-								{/if}
-								<div class="truncate text-gray-500 w-full">
-									{formatTime(program.StartDate)} - {formatTime(program.EndDate)}
-								</div>
-							</div>
-						{/each}
-						{#if !item.programs || item.programs.length === 0}
-							<div class="flex h-full items-center px-4 text-gray-500 italic">
-								No program data
-							</div>
-						{/if}
-					</div>
-				</div>
-			</VirtualList>
+				{/each}
+			</div>
 		</div>
 	{:else}
 		<div class="flex h-full items-center justify-center text-gray-500">
@@ -339,26 +368,6 @@
 </div>
 
 <style>
-	/* Force horizontal scroll on the virtual list viewport */
-	:global(svelte-virtual-list-viewport),
-	:global(.svelte-virtual-list-viewport),
-	:global(.viewport) {
-		overflow-x: auto !important;
-		overflow-y: auto !important;
-		width: 100% !important;
-		height: 100% !important;
-	}
-
-	:global(svelte-virtual-list-contents),
-	:global(.svelte-virtual-list-contents) {
-		width: fit-content;
-		min-width: 100%;
-	}
-
-	:global(svelte-virtual-list-row) {
-		overflow: visible !important;
-	}
-
 	@keyframes alarm-flash {
 		0%,
 		100% {
