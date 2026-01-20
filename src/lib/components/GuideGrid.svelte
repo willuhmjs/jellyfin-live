@@ -218,7 +218,7 @@
 			<div class="relative flex h-full" style="min-width: {totalWidth + CHANNEL_COLUMN_WIDTH}px;">
 				<!-- Corner Spacer (Sticky Left) -->
 				<div
-					class="sticky left-0 z-40 w-24 shrink-0 border-r border-gray-800 bg-gray-900"
+					class="w-24 shrink-0 border-r border-gray-800 bg-gray-900"
 				></div>
 				<!-- Time Slots -->
 				<div class="relative flex-1 h-full">
@@ -250,7 +250,7 @@
 				>
 					<!-- Channel Info (Left Column - Sticky) -->
 					<div
-						class="sticky left-0 z-20 flex w-24 shrink-0 flex-col items-center justify-center border-r border-gray-800 bg-gray-900 p-1 text-center gap-1"
+						class="sticky left-0 z-50 flex w-24 shrink-0 flex-col items-center justify-center border-r border-gray-800 bg-gray-900 p-1 text-center gap-1"
 					>
 						{#if host && item.Id}
 							<div class="relative h-10 w-full flex items-center justify-center">
