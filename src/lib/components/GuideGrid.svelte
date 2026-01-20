@@ -18,7 +18,7 @@
 	// Determine grid start/end based on available programs or fallback to now
 	// User Request: "start the graph / cut it off at the current time"
 	// So we ignore past programs for the start time calculation.
-	$: gridStartTime = new Date(Math.floor(now.getTime() / (30 * 60 * 1000)) * 30 * 60 * 1000);
+	$: gridStartTime = new Date(Math.floor(now.getTime() / (30 * 60 * 1000)) * 30 * 60 * 1000 - 30 * 60 * 1000);
 
 	$: maxDate =
 		allPrograms.length > 0

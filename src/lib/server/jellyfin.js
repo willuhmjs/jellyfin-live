@@ -180,15 +180,15 @@ export async function getChannels(userId, token) {
  * @param {string} token
  * @param {number} [limit=100]
  * @param {string|null} [searchTerm=null]
+ * @param {string|null} [minEndDate=null]
  * @returns {Promise<JellyfinProgram[]>}
  */
-export async function getPrograms(userId, token, limit = 100, searchTerm = null) {
+export async function getPrograms(userId, token, limit = 100, searchTerm = null, minEndDate = null) {
 	try {
 		// Fetch programs for the next 48 hours to be safe, or just use limit.
 		// We'll use HasAired=false to get future programs.
 		const params = new URLSearchParams({
 			UserId: userId,
-			HasAired: 'false',
 			SortBy: 'StartDate',
 			Limit: limit.toString(),
 			EnableTotalRecordCount: 'false',
@@ -200,6 +200,12 @@ export async function getPrograms(userId, token, limit = 100, searchTerm = null)
 
 		if (searchTerm) {
 			params.append('SearchTerm', searchTerm);
+		}
+
+		if (minEndDate) {
+			params.append('MinEndDate', minEndDate);
+		} else {
+			params.append('HasAired', 'false');
 		}
 
 		const host = await getHost();
