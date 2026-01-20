@@ -168,7 +168,7 @@ export async function getChannels(userId, token) {
 		return data.Items || [];
 	} catch (e) {
 		console.error('getChannels error:', e);
-		// @ts-ignore
+		// @ts-expect-error: ignore status
 		if (e?.status === 401) throw e;
 		return [];
 	}
@@ -195,7 +195,7 @@ export async function getPrograms(userId, token, limit = 100, searchTerm = null,
 			ImageTypeLimit: '1',
 			EnableImageTypes: 'Primary',
 			Fields:
-				'SeriesId,ProgramId,EpisodeTitle,Name,Overview,SeasonId,ParentIndexNumber,IndexNumber,StartDate,EndDate,ChannelName,PremiereDate,SeriesName'
+				'SeriesId,ProgramId,EpisodeTitle,Name,SeasonId,ParentIndexNumber,IndexNumber,StartDate,EndDate,SeriesName'
 		});
 
 		if (searchTerm) {
@@ -222,7 +222,7 @@ export async function getPrograms(userId, token, limit = 100, searchTerm = null,
 		return data.Items || [];
 	} catch (e) {
 		console.error('getPrograms error:', e);
-		// @ts-ignore
+		// @ts-expect-error: ignore status
 		if (e?.status === 401) throw e;
 		return [];
 	}
@@ -256,7 +256,7 @@ export async function getProgram(userId, token, programId) {
 		return await handleResponse(res, 'Failed to fetch program details');
 	} catch (e) {
 		console.error('getProgram error:', e);
-		// @ts-ignore
+		// @ts-expect-error: ignore status
 		if (e?.status === 401) throw e;
 		return null;
 	}
@@ -296,7 +296,7 @@ export async function getItems(userId, token, ids) {
 		return data.Items || [];
 	} catch (e) {
 		console.error('getItems error:', e);
-		// @ts-ignore
+		// @ts-expect-error: ignore status
 		if (e?.status === 401) throw e;
 		return [];
 	}
@@ -340,7 +340,7 @@ export async function getEpisodes(userId, token, seriesId, seasonId = null) {
 		return data.Items || [];
 	} catch (e) {
 		console.error('getEpisodes error:', e);
-		// @ts-ignore
+		// @ts-expect-error: ignore status
 		if (e?.status === 401) throw e;
 		return [];
 	}
@@ -377,7 +377,7 @@ export async function getRecordings(userId, token) {
 		return data.Items || [];
 	} catch (e) {
 		console.error('getRecordings error:', e);
-		// @ts-ignore
+		// @ts-expect-error: ignore status
 		if (e?.status === 401) throw e;
 		return [];
 	}
@@ -431,7 +431,7 @@ export async function searchItems(userId, token, searchTerm, types = ['Series'])
 		return data.Items || [];
 	} catch (e) {
 		console.error('searchItems error:', e);
-		// @ts-ignore
+		// @ts-expect-error: ignore status
 		if (e?.status === 401) throw e;
 		return [];
 	}
@@ -459,7 +459,7 @@ export async function getChannel(userId, token, channelId) {
 		return await handleResponse(res, 'Failed to fetch channel details');
 	} catch (e) {
 		console.error('getChannel error:', e);
-		// @ts-ignore
+		// @ts-expect-error: ignore status
 		if (e?.status === 401) throw e;
 		return null;
 	}
@@ -666,7 +666,7 @@ export async function getTimers(token) {
 		return data.Items || [];
 	} catch (e) {
 		console.error('getTimers error:', e);
-		// @ts-ignore
+		// @ts-expect-error: ignore status
 		if (e?.status === 401) throw e;
 		return [];
 	}
@@ -693,7 +693,7 @@ export async function getSeriesTimers(token) {
 		return data.Items || [];
 	} catch (e) {
 		console.error('getSeriesTimers error:', e);
-		// @ts-ignore
+		// @ts-expect-error: ignore status
 		if (e?.status === 401) throw e;
 		return [];
 	}

@@ -1,5 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import * as jellyfin from '$lib/server/jellyfin';
+import { getCached, clearCache } from '$lib/server/cache';
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -12,15 +13,40 @@ export async function load({ locals }) {
 	}
 
 	try {
-		const channels = await jellyfin.getChannels(userId, sessionId);
-		// Fetch programs. 25000 limit to ensure we cover enough time for all channels.
-		// API returns programs sorted by StartDate.
-		// Fetch programs ending after 1 hour ago to populate the previous block
-		const minEndDate = new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString();
-		let programs = await jellyfin.getPrograms(userId, sessionId, 25000, null, minEndDate);
+		// Round to nearest 15 minutes to improve cache hit rate
+		const now = Date.now();
+		const roundedNow = Math.floor(now / (15 * 60 * 1000)) * (15 * 60 * 1000);
+		const minEndDate = new Date(roundedNow - 1 * 60 * 60 * 1000).toISOString();
 
-		// Fetch active timers (recordings) and series timers
-		const timers = await jellyfin.getTimers(sessionId);
+		// Fetch data in parallel for better performance
+		const [channels, fetchedPrograms, timers, seriesTimers] = await Promise.all([
+			// Cache channels for 5 minutes
+			getCached(
+				`channels:${userId}`,
+				() => jellyfin.getChannels(userId, sessionId),
+				300
+			),
+			// Fetch programs. 25000 limit to ensure we cover enough time for all channels.
+			getCached(
+				`programs:${userId}:${minEndDate}`,
+				() => jellyfin.getPrograms(userId, sessionId, 25000, null, minEndDate),
+				300
+			),
+			// Active timers (recordings) - short cache
+			getCached(
+				`timers:${sessionId}`,
+				() => jellyfin.getTimers(sessionId),
+				10
+			),
+			// Series timers - short cache
+			getCached(
+				`series_timers:${sessionId}`,
+				() => jellyfin.getSeriesTimers(sessionId),
+				10
+			)
+		]);
+
+		let programs = fetchedPrograms;
 
 		// Inject future recordings that might be outside the fetched guide window
 		// This allows the user to see future scheduled recordings in the grid
@@ -46,8 +72,6 @@ export async function load({ locals }) {
 			console.log(`Injecting ${futurePrograms.length} future programs from timers`);
 			programs = [...programs, ...futurePrograms];
 		}
-
-		const seriesTimers = await jellyfin.getSeriesTimers(sessionId);
 
 		console.log('--- DEBUG MATCHING ---');
 		if (programs.length > 0) {
@@ -89,13 +113,22 @@ export async function load({ locals }) {
 			if (nameKey) seriesTimersByName.set(nameKey, st);
 		});
 
+		let maxProgramDate = 0;
+
 		// Map programs to channels
 		const channelsWithPrograms = channels.map((channel) => {
 			const rawPrograms = programsByChannel.get(channel.Id) || [];
 
 			const channelPrograms = rawPrograms
-				.sort((a, b) => new Date(a.StartDate).getTime() - new Date(b.StartDate).getTime())
+				// Optimize sort: String comparison for ISO dates is faster and correct
+				.sort((a, b) => (a.StartDate < b.StartDate ? -1 : a.StartDate > b.StartDate ? 1 : 0))
 				.map((p) => {
+					// Track max date for frontend optimization
+					if (p.EndDate) {
+						const end = new Date(p.EndDate).getTime();
+						if (end > maxProgramDate) maxProgramDate = end;
+					}
+
 					// Check if this specific program is being recorded
 					const timer = timersByProgramId.get(p.Id);
 
@@ -131,8 +164,9 @@ export async function load({ locals }) {
 
 		return {
 			channels: channelsWithPrograms,
-		          JELLYFIN_HOST: await jellyfin.getHost(),
-		          token: sessionId
+			maxDate: maxProgramDate > 0 ? new Date(maxProgramDate).toISOString() : null,
+			JELLYFIN_HOST: await jellyfin.getHost(),
+			token: sessionId
 		};
 	} catch (e) {
 		console.error('Error fetching guide data:', e);
@@ -164,6 +198,7 @@ export const actions = {
 
 		try {
 			await jellyfin.scheduleRecording(token, programId.toString(), false, userId);
+			clearCache(`timers:${token}`); // Invalidate timers cache
 			await delay(500); // Allow Jellyfin to process
 			return { success: true };
 		} catch (error) {
@@ -187,6 +222,8 @@ export const actions = {
 
 		try {
 			await jellyfin.scheduleRecording(token, programId.toString(), true, userId);
+			clearCache(`timers:${token}`); // Invalidate timers cache
+			clearCache(`series_timers:${token}`);
 			await delay(500); // Allow Jellyfin to process
 			return { success: true };
 		} catch (error) {
@@ -209,6 +246,7 @@ export const actions = {
 
 		try {
 			await jellyfin.cancelTimer(token, timerId.toString());
+			clearCache(`timers:${token}`); // Invalidate timers cache
 			await delay(500); // Allow Jellyfin to process
 			return { success: true };
 		} catch (error) {
@@ -231,6 +269,9 @@ export const actions = {
 
 		try {
 			await jellyfin.cancelSeriesTimer(token, seriesTimerId.toString());
+			clearCache(`series_timers:${token}`); // Invalidate series timers cache
+			// Also invalidate timers as cancelling a series timer might remove scheduled items
+			clearCache(`timers:${token}`);
 			await delay(500); // Allow Jellyfin to process
 			return { success: true };
 		} catch (error) {

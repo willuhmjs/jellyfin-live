@@ -4,10 +4,13 @@
 	export let channels = [];
 	export let host = '';
 	export let token = '';
+	/** @type {string | null} */
+	export let maxDate = null;
 
 	const dispatch = createEventDispatcher();
 	const PIXELS_PER_MINUTE = 4; // 1 min = 4px
 	const CHANNEL_COLUMN_WIDTH = 96; // w-24 = 6rem = 96px
+	const ITEM_HEIGHT = 96;
 
 	let headerEl;
 	let gridContainer;
@@ -15,39 +18,32 @@
 	const gridReferenceTime = new Date();
 	let now = new Date();
 	let scrollX = 0;
+	let scrollTop = 0;
+	let viewportHeight = 0;
 	let viewportWidth = 0;
 	let resizeObserver;
 	let nowInterval;
 
-	let visibleChannels = [];
-	let renderTimer;
-
-	function startProgressiveRender() {
-		if (renderTimer) clearTimeout(renderTimer);
-
-		const process = () => {
-			if (visibleChannels.length >= channels.length) return;
-
-			const nextBatchSize = 50;
-			const currentLen = visibleChannels.length;
-			const nextChunk = channels.slice(currentLen, currentLen + nextBatchSize);
-
-			if (nextChunk.length > 0) {
-				visibleChannels = [...visibleChannels, ...nextChunk];
-				renderTimer = setTimeout(process, 50);
-			}
-		};
-
-		renderTimer = setTimeout(process, 50);
-	}
-
-	$: if (channels) {
-		visibleChannels = channels.slice(0, 30);
-		startProgressiveRender();
-	}
+	// Virtualization Logic
+	$: totalHeight = channels.length * ITEM_HEIGHT;
+	
+	$: startIndex = Math.floor(scrollTop / ITEM_HEIGHT);
+	$: endIndex = Math.min(
+		channels.length,
+		Math.ceil((scrollTop + viewportHeight) / ITEM_HEIGHT)
+	);
+	
+	// Add buffer
+	$: visibleStartIndex = Math.max(0, startIndex - 2);
+	$: visibleEndIndex = Math.min(channels.length, endIndex + 5);
+	
+	$: visibleChannels = channels.slice(visibleStartIndex, visibleEndIndex).map((c, i) => ({
+	       ...c,
+	       virtualTop: (visibleStartIndex + i) * ITEM_HEIGHT
+	   }));
 
 	// Reactive computations for grid dimensions
-	$: allPrograms = channels.flatMap((c) => c.programs || []);
+	$: allPrograms = !maxDate ? channels.flatMap((c) => c.programs || []) : [];
 
 	// Determine grid start/end based on available programs or fallback to now
 	// User Request: "enable the user to scroll left up to 3 hours"
@@ -61,8 +57,9 @@
 	$: currentSlotLeft =
 		((currentSlotStart - gridStartTime) / 1000 / 60) * PIXELS_PER_MINUTE;
 
-	$: maxDate =
-		allPrograms.length > 0
+	$: calculatedMaxDate = maxDate
+		? new Date(maxDate)
+		: allPrograms.length > 0
 			? new Date(
 					Math.max(
 						...allPrograms
@@ -75,7 +72,7 @@
 	// Ensure grid end time is at least 24 hours from start if data is sparse, or follows maxDate
 	$: gridEndTime = new Date(
 		Math.max(
-			Math.ceil(maxDate.getTime() / (30 * 60 * 1000)) * 30 * 60 * 1000,
+			Math.ceil(calculatedMaxDate.getTime() / (30 * 60 * 1000)) * 30 * 60 * 1000,
 			gridStartTime.getTime() + 24 * 60 * 60 * 1000
 		)
 	);
@@ -167,73 +164,56 @@
 		return visibleCenter > cardCenter;
 	}
 
+	function handleScroll(e) {
+		const target = e.target;
+		scrollTop = target.scrollTop;
+		scrollX = target.scrollLeft;
+		
+		if (headerEl) {
+			headerEl.scrollLeft = scrollX;
+		}
+	}
+
 	onMount(() => {
 		// Update 'now' every minute to keep the red column correct
 		nowInterval = setInterval(() => {
 			now = new Date();
 		}, 60000);
-
-		// Allow DOM to settle
-		setTimeout(() => {
-			// Sync horizontal scroll from virtual list to header
-			// Try multiple selectors as svelte-virtual-list structure varies
-			const viewport =
-				gridContainer?.querySelector('svelte-virtual-list-viewport') || // Custom element
-				gridContainer?.querySelector('.svelte-virtual-list-viewport') || // Class
-				gridContainer?.querySelector('.viewport') || // Common class
-				gridContainer?.firstElementChild; // Fallback to root element
-
-			if (viewport) {
-				console.log('[GuideGrid] Found viewport for scroll sync');
-
-				// Initialize viewport width
-				viewportWidth = viewport.clientWidth;
-				resizeObserver = new ResizeObserver((entries) => {
-					for (const entry of entries) {
+		
+		if (gridContainer) {
+			viewportHeight = gridContainer.clientHeight;
+			viewportWidth = gridContainer.clientWidth;
+			
+			resizeObserver = new ResizeObserver((entries) => {
+				for (const entry of entries) {
+					if (entry.target === gridContainer) {
+						viewportHeight = entry.contentRect.height;
 						viewportWidth = entry.contentRect.width;
 					}
-				});
-				resizeObserver.observe(viewport);
-
-				viewport.addEventListener('scroll', () => {
-					scrollX = viewport.scrollLeft;
-					if (headerEl) {
-						headerEl.scrollLeft = viewport.scrollLeft;
-					}
-				});
-
-				// Scroll to "Now"
-				// gridStartTime is 3 hours ago (roughly)
-				// Calculate offset for current time
-				const diffMs = new Date() - gridStartTime;
-				if (diffMs > 0) {
-					const diffMinutes = diffMs / 1000 / 60;
-					const startPixels = diffMinutes * PIXELS_PER_MINUTE;
-					// Subtract buffer to show context (e.g. 30 mins = 120px)
-					const scrollTarget = Math.max(0, startPixels - 120);
-					
-					// Force scroll
-					viewport.scrollLeft = scrollTarget;
-					scrollX = scrollTarget;
-					
-					// Also sync header immediately
-					if (headerEl) {
-						headerEl.scrollLeft = scrollTarget;
-					}
-				} else {
-					viewport.scrollLeft = 0;
-					scrollX = 0;
 				}
-			} else {
-				console.warn('[GuideGrid] Could not find viewport element');
+			});
+			resizeObserver.observe(gridContainer);
+			
+			// Scroll to "Now"
+			const diffMs = new Date() - gridStartTime;
+			if (diffMs > 0) {
+				const diffMinutes = diffMs / 1000 / 60;
+				const startPixels = diffMinutes * PIXELS_PER_MINUTE;
+				const scrollTarget = Math.max(0, startPixels - 120);
+				
+				gridContainer.scrollLeft = scrollTarget;
+				scrollX = scrollTarget;
+				
+				if (headerEl) {
+					headerEl.scrollLeft = scrollTarget;
+				}
 			}
-		}, 100);
+		}
 	});
 
 	onDestroy(() => {
 		if (resizeObserver) resizeObserver.disconnect();
 		if (nowInterval) clearInterval(nowInterval);
-		if (renderTimer) clearTimeout(renderTimer);
 	});
 </script>
 
@@ -283,13 +263,20 @@
 		</div>
 
 		<!-- Grid Content -->
-		<div class="flex-1 relative h-full" bind:this={gridContainer}>
-			<div class="viewport h-full w-full overflow-auto">
-				{#each visibleChannels as item}
-					<!-- Row Wrapper with explicit width to force horizontal scroll -->
+		<div
+			class="flex-1 relative h-full overflow-auto guide-grid-scroll-container"
+			bind:this={gridContainer}
+			on:scroll={handleScroll}
+		>
+			<!-- Virtualization Container -->
+			<div
+				style="height: {totalHeight}px; width: {totalWidth + CHANNEL_COLUMN_WIDTH}px; position: relative;"
+			>
+				{#each visibleChannels as item (item.Id)}
+					<!-- Row Wrapper -->
 					<div
-						class="flex h-24 border-b border-gray-800 hover:bg-gray-800/30 transition-colors relative"
-						style="min-width: {totalWidth + CHANNEL_COLUMN_WIDTH}px;"
+						class="flex border-b border-gray-800 hover:bg-gray-800/30 transition-colors absolute left-0 right-0"
+						style="height: {ITEM_HEIGHT}px; top: {item.virtualTop}px;"
 					>
 						<!-- Channel Info (Left Column - Sticky) -->
 						<div
@@ -380,5 +367,24 @@
 
 	.alarm-flash {
 		animation: alarm-flash 2s infinite ease-in-out;
+	}
+
+	/* Scrollbar Styling */
+	.guide-grid-scroll-container::-webkit-scrollbar {
+		width: 10px;
+		height: 10px;
+	}
+	
+	.guide-grid-scroll-container::-webkit-scrollbar-track {
+		background: #111827;
+	}
+	
+	.guide-grid-scroll-container::-webkit-scrollbar-thumb {
+		background: #374151;
+		border-radius: 5px;
+	}
+	
+	.guide-grid-scroll-container::-webkit-scrollbar-thumb:hover {
+		background: #4b5563;
 	}
 </style>

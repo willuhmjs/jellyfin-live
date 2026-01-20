@@ -66,6 +66,7 @@
 					channels={filteredChannels}
 					host={data.JELLYFIN_HOST}
 					token={data.token}
+					maxDate={data.maxDate}
 					on:select={handleSelect}
 				/>
 			</div>
