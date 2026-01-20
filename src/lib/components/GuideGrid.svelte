@@ -183,6 +183,7 @@
 								class="absolute top-1 bottom-1 flex flex-col justify-center overflow-hidden rounded border border-gray-700 bg-gray-800 p-1 text-xs hover:bg-blue-900/40 cursor-pointer transition-colors z-10"
 								class:border-red-500={program.isRecording || program.isSeriesRecording}
 								class:border-2={program.isRecording || program.isSeriesRecording}
+								class:text-right={getProgramLeft(program) < 0}
 								style="width: {getProgramWidth(program) - 4}px; left: {getProgramLeft(program)}px;"
 								on:click={() => handleProgramClick(program)}
 								role="button"
