@@ -66,7 +66,8 @@ async function fetchFromTvMaze(endpoint, skipCache = false) {
 }
 
 export async function searchShows(query) {
-    const encodedQuery = encodeURIComponent(query);
+    const cleanQuery = query.trim();
+    const encodedQuery = encodeURIComponent(cleanQuery);
     const endpoint = `/search/shows?q=${encodedQuery}`;
     let results = await fetchFromTvMaze(endpoint);
 

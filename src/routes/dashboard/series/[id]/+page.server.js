@@ -1,7 +1,7 @@
 import * as tvmaze from '$lib/server/tvmaze';
 import * as jellyfin from '$lib/server/jellyfin';
 import * as db from '$lib/server/db';
-import { normalizeShow } from '$lib/server/normalization';
+import { normalizeShow, cleanName } from '$lib/server/normalization';
 import { fail, redirect } from '@sveltejs/kit';
 
 export async function load({ params, locals }) {
@@ -18,7 +18,6 @@ export async function load({ params, locals }) {
     const tvmazeId = params.id;
 
     const JELLYFIN_HOST = await jellyfin.getHost();
-    const cleanName = (n) => n ? n.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
     
     // 1. Fetch TVMaze Data
     let show;

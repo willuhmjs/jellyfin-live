@@ -2,6 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import * as jellyfin from '$lib/server/jellyfin';
 import * as tvmaze from '$lib/server/tvmaze';
 import * as db from '$lib/server/db';
+import { cleanName } from '$lib/server/normalization';
 
 export async function load({ cookies }) {
     const sessionId = cookies.get('session_id');
@@ -130,10 +131,6 @@ export async function load({ cookies }) {
         console.log('[Dashboard] Starting parallel TVMaze image fetch...');
         
         const seriesPromises = monitoredSeries.map(async (series) => {
-            if (series.isMovie) {
-                return series;
-            }
-
             const cachedImage = await db.getSeriesImage(series.name);
             // console.log(`[Dashboard] Cached image for ${series.name}: ${cachedImage}`);
             if (cachedImage) {
@@ -143,11 +140,15 @@ export async function load({ cookies }) {
                 };
             }
 
+            if (series.isMovie) {
+                return series;
+            }
+
             try {
                 // Search TVMaze for the show (cached)
                 const results = await tvmaze.searchShows(series.name);
                 // Find exact match or fallback to first result
-                const match = results.find(r => r.show.name.toLowerCase() === series.name.toLowerCase()) || results[0];
+                const match = results.find(r => cleanName(r.show.name) === cleanName(series.name)) || results[0];
 
                 if (match && match.show.image) {
                     return {

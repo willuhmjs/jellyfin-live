@@ -27,6 +27,8 @@
  * }
  */
 
+export const cleanName = (n) => n ? n.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+
 export function normalizeShow(source, type = 'tvmaze', host = null) {
     if (!source) return null;
 
