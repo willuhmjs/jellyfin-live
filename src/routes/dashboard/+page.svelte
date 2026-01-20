@@ -3,6 +3,7 @@
     import { onMount } from 'svelte';
     import { fade, fly } from 'svelte/transition';
     import { flip } from 'svelte/animate';
+    import ProgramModal from '$lib/components/ProgramModal.svelte';
 
     export let data;
     export let form;
@@ -53,6 +54,20 @@
     function handleImageError(e) {
         const target = /** @type {HTMLImageElement} */ (e.currentTarget);
         target.style.display = 'none';
+    }
+
+    let selectedProgram = null;
+
+    function handleSelect(program) {
+        selectedProgram = program;
+    }
+
+    function handleClose() {
+        selectedProgram = null;
+    }
+
+    $: if (form?.success) {
+        selectedProgram = null;
     }
 </script>
 
@@ -159,6 +174,15 @@
         </section>
     {/if}
 
+    {#if selectedProgram}
+        <ProgramModal
+            program={selectedProgram}
+            host={data.JELLYFIN_HOST}
+            token={data.token}
+            on:close={handleClose}
+        />
+    {/if}
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <!-- Main Content Column -->
         <div class="lg:col-span-2 space-y-10">
@@ -179,43 +203,46 @@
                 
                 <div class="flex overflow-x-auto gap-4 pb-4 snap-x scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent -mx-6 px-6 md:mx-0 md:px-0">
                     {#each data.onAir as prog}
-                        <div class="flex-shrink-0 w-[280px] bg-card hover:bg-card-hover border border-white/5 rounded-2xl p-3 flex flex-col gap-3 transition-all duration-300 hover:shadow-lg hover:shadow-black/20 group relative snap-start">
+                        <button
+                            class="flex-shrink-0 w-[280px] bg-card hover:bg-card-hover border border-white/5 rounded-2xl p-3 flex flex-col gap-3 transition-all duration-300 hover:shadow-lg hover:shadow-black/20 group relative snap-start text-left"
+                            on:click={() => handleSelect(prog)}
+                        >
                             <!-- Image -->
                             <div class="relative w-full aspect-[3/2] rounded-xl overflow-hidden bg-gray-800 shadow-md">
+                                <!-- Fallback -->
+                                <div class="absolute inset-0 flex items-center justify-center bg-white/5 text-gray-600">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
                                 {#if prog.BackdropImageTags && prog.BackdropImageTags.length > 0}
                                     <img
                                         src="{data.JELLYFIN_HOST}/Items/{prog.Id}/Images/Backdrop/0?Tag={prog.BackdropImageTags[0]}&fillWidth=400&quality=90&api_key={data.token}"
                                         alt={prog.Name}
-                                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                        class="relative z-10 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                         on:error={handleImageError}
                                     />
                                 {:else if prog.ImageTags && prog.ImageTags.Thumb}
                                     <img
                                         src="{data.JELLYFIN_HOST}/Items/{prog.Id}/Images/Thumb?Tag={prog.ImageTags.Thumb}&fillWidth=400&quality=90&api_key={data.token}"
                                         alt={prog.Name}
-                                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                        class="relative z-10 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                         on:error={handleImageError}
                                     />
                                 {:else if prog.SeriesPrimaryImageTag}
                                      <img
                                         src="{data.JELLYFIN_HOST}/Items/{prog.SeriesId}/Images/Primary?Tag={prog.SeriesPrimaryImageTag}&fillWidth=400&quality=90&api_key={data.token}"
                                         alt={prog.Name}
-                                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                        class="relative z-10 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                         on:error={handleImageError}
                                     />
                                 {:else if prog.ImageTags && prog.ImageTags.Primary}
                                     <img
                                         src="{data.JELLYFIN_HOST}/Items/{prog.Id}/Images/Primary?Tag={prog.ImageTags.Primary}&fillWidth=400&quality=90&api_key={data.token}"
                                         alt={prog.Name}
-                                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                        class="relative z-10 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                         on:error={handleImageError}
                                     />
-                                {:else}
-                                    <div class="w-full h-full flex items-center justify-center bg-white/5 text-gray-500">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                        </svg>
-                                    </div>
                                 {/if}
 
                                 <!-- Overlay Live Badge -->
@@ -230,7 +257,7 @@
                             </div>
 
                             <!-- Content -->
-                            <div class="flex flex-col min-w-0">
+                            <div class="flex flex-col min-w-0 w-full">
                                 <div class="flex items-center gap-2 mb-1">
                                     <span class="text-[10px] font-bold text-gray-400 bg-white/5 px-1.5 py-0.5 rounded uppercase tracking-wider truncate max-w-full">
                                         {prog.ChannelName}
@@ -247,7 +274,7 @@
                                     <span>{new Date(prog.EndDate).toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'})}</span>
                                 </div>
                             </div>
-                        </div>
+                        </button>
                     {/each}
                 </div>
             </section>
@@ -267,10 +294,15 @@
                     {#each data.premieres.slice(0, 4) as prog}
                         <div class="bg-card hover:bg-card-hover border border-white/5 rounded-2xl p-4 flex gap-4 transition-all duration-300 hover:shadow-lg hover:shadow-black/20 group">
                             <div class="relative w-24 h-36 flex-shrink-0 rounded-xl overflow-hidden bg-gray-800 shadow-md">
+                                <div class="absolute inset-0 flex items-center justify-center bg-white/5 text-gray-600">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
                                 <img
                                     src="{data.JELLYFIN_HOST}/Items/{prog.Id}/Images/Primary?fillWidth=200&quality=90&api_key={data.token}"
                                     alt={prog.Name}
-                                    class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                    class="relative z-10 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                     on:error={handleImageError}
                                 />
                             </div>
@@ -310,21 +342,20 @@
                         {#each filteredSeries.slice(0, 8) as series (series.name)}
                              <a href="/dashboard/series/{series.id}" class="group relative flex flex-col gap-3" animate:flip={{duration: 300}}>
                                 <div class="relative w-full aspect-[1/1] sm:aspect-[2/3] rounded-2xl overflow-hidden bg-card shadow-lg border border-white/5 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-xl group-hover:shadow-accent/10">
+                                    <div class="absolute inset-0 flex items-center justify-center text-gray-600 bg-card">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                    </div>
                                     {#if series.tvmazeImage}
-                                        <img src={series.tvmazeImage} alt={series.name} class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                        <img src={series.tvmazeImage} alt={series.name} class="relative z-10 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" on:error={handleImageError} />
                                     {:else if series.id && series.imageTag}
                                         <img
                                             src="{data.JELLYFIN_HOST}/Items/{series.id}/Images/Primary?Tag={series.imageTag}&fillWidth=400&quality=90&api_key={data.token}"
                                             alt={series.name}
-                                            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                            class="relative z-10 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                             on:error={handleImageError}
                                         />
-                                    {:else}
-                                        <div class="w-full h-full flex items-center justify-center text-gray-500 bg-card">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                            </svg>
-                                        </div>
                                     {/if}
                                     
                                      <!-- Status Badge Overlay -->
@@ -368,21 +399,19 @@
                         {#each data.scheduledRecordings as timer}
                             <div class="flex gap-4 group items-center">
                                 <div class="relative w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden flex-shrink-0 bg-gray-800 border border-white/5">
-                                    <!-- 1. Generic Fallback Icon (Bottom layer) - Hidden if Channel Logo is present to avoid visual clutter -->
-                                    {#if !timer.ChannelId}
-                                        <div class="absolute inset-0 flex items-center justify-center text-gray-600">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                            </svg>
-                                        </div>
-                                    {/if}
+                                    <!-- 1. Generic Fallback Icon (Bottom layer) -->
+                                    <div class="absolute inset-0 flex items-center justify-center text-gray-600">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                        </svg>
+                                    </div>
 
                                     <!-- 2. Channel Logo (Middle layer) -->
                                     {#if timer.ChannelId}
                                         <img
                                             src="{data.JELLYFIN_HOST}/Items/{timer.ChannelId}/Images/Primary?fillWidth=100&quality=90&api_key={data.token}"
                                             alt={timer.ChannelName}
-                                            class="absolute inset-0 w-full h-full object-contain p-2 transition-opacity duration-300 text-transparent"
+                                            class="absolute inset-0 w-full h-full object-contain p-2 transition-opacity duration-300"
                                             on:error={(e) => e.currentTarget.style.display = 'none'}
                                         />
                                     {/if}

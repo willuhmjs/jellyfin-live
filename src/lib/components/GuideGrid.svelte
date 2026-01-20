@@ -279,15 +279,22 @@
 						style="height: {ITEM_HEIGHT}px; top: {item.virtualTop}px;"
 					>
 						<!-- Channel Info (Left Column - Sticky) -->
-						<div
-							class="sticky left-0 z-50 flex w-24 shrink-0 flex-col items-center justify-center border-r border-gray-800 bg-gray-900 p-1 text-center gap-1"
+						<a
+							href="{host}/web/index.html#!/details?id={item.Id}"
+							target="_blank"
+							class="sticky left-0 z-50 flex w-24 shrink-0 flex-col items-center justify-center border-r border-gray-800 bg-gray-900 p-1 text-center gap-1 hover:bg-gray-800 transition-colors"
 						>
 							{#if host && item.Id}
 								<div class="relative h-10 w-full flex items-center justify-center">
+									<div class="absolute inset-0 flex items-center justify-center text-gray-700">
+										<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+										</svg>
+									</div>
 									<img
 										src="{host}/Items/{item.Id}/Images/Primary?fillWidth=100&quality=90&api_key={token}"
 										alt={item.Name}
-										class="max-h-full max-w-full object-contain"
+										class="relative z-10 max-h-full max-w-full object-contain"
 										on:error={(e) => (e.currentTarget.style.display = 'none')}
 									/>
 								</div>
@@ -296,7 +303,7 @@
 							<div class="truncate text-[10px] text-gray-400 w-full leading-tight" title={item.Name}>
 								{item.Name}
 							</div>
-						</div>
+						</a>
 
 						<!-- Timeline Programs (Absolute positioning) -->
 						<div class="relative flex-1 h-full overflow-hidden">
