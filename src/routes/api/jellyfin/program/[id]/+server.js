@@ -69,6 +69,9 @@ export async function GET({ params, cookies }) {
 
         return json(program);
     } catch (e) {
+        if (e.status === 401 || (e.message && e.message.includes('401'))) {
+            return json({ error: 'Unauthorized' }, { status: 401 });
+        }
         return json({ error: e.message }, { status: 500 });
     }
 }

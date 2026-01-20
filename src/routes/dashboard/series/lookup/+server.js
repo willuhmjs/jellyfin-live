@@ -37,6 +37,9 @@ export async function GET({ url, locals }) {
             } catch (je) {
                 console.error('Jellyfin lookup failed:', je);
                 if (je.status === 303) throw je;
+                if (je.status === 401 || (je.message && je.message.includes('401'))) {
+                    throw redirect(303, '/login');
+                }
             }
         }
 
@@ -45,6 +48,9 @@ export async function GET({ url, locals }) {
         
     } catch (e) {
         if (e.status === 303) throw e;
+        if (e.status === 401 || (e.message && e.message.includes('401'))) {
+            throw redirect(303, '/login');
+        }
         console.error('Lookup failed:', e);
         throw redirect(303, `/dashboard?error=lookup_failed&q=${encodeURIComponent(name)}`);
     }

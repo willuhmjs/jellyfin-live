@@ -2,7 +2,7 @@ import * as tvmaze from '$lib/server/tvmaze';
 import * as jellyfin from '$lib/server/jellyfin';
 import * as db from '$lib/server/db';
 import { normalizeShow } from '$lib/server/normalization';
-import { fail } from '@sveltejs/kit';
+import { fail, redirect } from '@sveltejs/kit';
 
 export async function load({ params, locals }) {
     if (!locals.user) {
@@ -311,6 +311,9 @@ export async function load({ params, locals }) {
 
     } catch (e) {
         console.error('Error fetching Jellyfin data (continuing anyway):', e);
+        if (e.status === 401 || (e.message && e.message.includes('401'))) {
+             throw redirect(303, '/login');
+        }
         // We continue without Jellyfin data so the user can still see show info
     }
 

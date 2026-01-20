@@ -134,7 +134,7 @@ export async function load({ cookies }) {
 		};
 	} catch (e) {
 		console.error('Error fetching guide data:', e);
-		if (e.message && e.message.includes('401')) {
+		if (e.status === 401 || (e.message && e.message.includes('401'))) {
 			throw redirect(303, '/login');
 		}
 		return {

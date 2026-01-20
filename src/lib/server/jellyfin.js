@@ -71,6 +71,31 @@ async function getFetchOpts() {
 }
 
 /**
+ * Helper to handle response errors
+ * @param {Response} res
+ * @param {string} errorPrefix
+ * @returns {Promise<any>}
+ */
+async function handleResponse(res, errorPrefix) {
+	if (!res.ok) {
+		const text = await res.text().catch(() => res.statusText);
+		const error = new Error(`${errorPrefix}: ${res.status} ${text}`);
+		// @ts-ignore
+		error.status = res.status;
+		throw error;
+	}
+	// Check for 204 No Content
+	if (res.status === 204) {
+		return null;
+	}
+	try {
+		return await res.json();
+	} catch {
+		return null;
+	}
+}
+
+/**
  * Get the configured Jellyfin host URL
  * @returns {Promise<string>}
  * @throws {Error} If host is not configured
@@ -107,12 +132,7 @@ export async function authenticate(username, password) {
 			...opts
 		});
 
-		if (!res.ok) {
-			const errorText = await res.text();
-			throw new Error(`Authentication failed: ${res.status} ${errorText}`);
-		}
-
-		const data = await res.json();
+		const data = await handleResponse(res, 'Authentication failed');
 		return {
 			user: data.User,
 			accessToken: data.AccessToken
@@ -144,11 +164,7 @@ export async function getChannels(userId, token) {
 			}
 		);
 
-		if (!res.ok) {
-			throw new Error(`Failed to fetch channels: ${res.status} ${res.statusText}`);
-		}
-
-		const data = await res.json();
+		const data = await handleResponse(res, 'Failed to fetch channels');
 		return data.Items || [];
 	} catch (e) {
 		console.error('getChannels error:', e);
@@ -194,11 +210,7 @@ export async function getPrograms(userId, token, limit = 100, searchTerm = null)
 			...opts
 		});
 
-		if (!res.ok) {
-			throw new Error(`Failed to fetch programs: ${res.status} ${res.statusText}`);
-		}
-
-		const data = await res.json();
+		const data = await handleResponse(res, 'Failed to fetch programs');
 		return data.Items || [];
 	} catch (e) {
 		console.error('getPrograms error:', e);
@@ -231,11 +243,7 @@ export async function getProgram(userId, token, programId) {
 			...opts
 		});
 
-		if (!res.ok) {
-			throw new Error(`Failed to fetch program details: ${res.status} ${res.statusText}`);
-		}
-
-		return await res.json();
+		return await handleResponse(res, 'Failed to fetch program details');
 	} catch (e) {
 		console.error('getProgram error:', e);
 		return null;
@@ -269,12 +277,10 @@ export async function getItems(userId, token, ids) {
 			...opts
 		});
 
-		if (!res.ok) {
-			console.warn(`Failed to fetch items by IDs: ${res.status} ${res.statusText}`);
-			return [];
-		}
-
-		const data = await res.json();
+		const data = await handleResponse(res, 'Failed to fetch items by IDs').catch(e => {
+			console.warn(e.message);
+			return { Items: [] };
+		});
 		return data.Items || [];
 	} catch (e) {
 		console.error('getItems error:', e);
@@ -316,11 +322,7 @@ export async function getEpisodes(userId, token, seriesId, seasonId = null) {
 			...opts
 		});
 
-		if (!res.ok) {
-			throw new Error(`Failed to fetch episodes: ${res.status} ${res.statusText}`);
-		}
-
-		const data = await res.json();
+		const data = await handleResponse(res, 'Failed to fetch episodes');
 		return data.Items || [];
 	} catch (e) {
 		console.error('getEpisodes error:', e);
@@ -355,11 +357,7 @@ export async function getRecordings(userId, token) {
 			...opts
 		});
 
-		if (!res.ok) {
-			throw new Error(`Failed to fetch recordings: ${res.status} ${res.statusText}`);
-		}
-
-		const data = await res.json();
+		const data = await handleResponse(res, 'Failed to fetch recordings');
 		return data.Items || [];
 	} catch (e) {
 		console.error('getRecordings error:', e);
@@ -411,11 +409,7 @@ export async function searchItems(userId, token, searchTerm, types = ['Series'])
 			...opts
 		});
 
-		if (!res.ok) {
-			throw new Error(`Failed to search items: ${res.status} ${res.statusText}`);
-		}
-
-		const data = await res.json();
+		const data = await handleResponse(res, 'Failed to search items');
 		return data.Items || [];
 	} catch (e) {
 		console.error('searchItems error:', e);
@@ -442,11 +436,7 @@ export async function getChannel(userId, token, channelId) {
 			...opts
 		});
 
-		if (!res.ok) {
-			throw new Error(`Failed to fetch channel details: ${res.status} ${res.statusText}`);
-		}
-
-		return await res.json();
+		return await handleResponse(res, 'Failed to fetch channel details');
 	} catch (e) {
 		console.error('getChannel error:', e);
 		return null;
@@ -593,19 +583,7 @@ export async function scheduleRecording(token, programId, isSeries = false, user
 			...opts
 		});
 
-		if (!res.ok) {
-			const errorText = await res.text();
-			console.error('Jellyfin Schedule Error:', res.status, errorText);
-			// Jellyfin might return 204 No Content for success, or JSON error
-			throw new Error(`Failed to schedule recording: ${res.status} ${errorText}`);
-		}
-
-		// Sometimes returns created object, sometimes empty
-		try {
-			return await res.json();
-		} catch {
-			return true;
-		}
+		return await handleResponse(res, 'Failed to schedule recording');
 	} catch (e) {
 		console.error('scheduleRecording error:', e);
 		throw e;
@@ -632,10 +610,7 @@ export async function cancelSeriesTimer(token, timerId) {
 			...opts
 		});
 
-		if (!res.ok) {
-			throw new Error(`Failed to cancel series timer: ${res.status} ${res.statusText}`);
-		}
-
+		await handleResponse(res, 'Failed to cancel series timer');
 		return true;
 	} catch (e) {
 		console.error('cancelSeriesTimer error:', e);
@@ -665,11 +640,7 @@ export async function getTimers(token) {
 			...opts
 		});
 
-		if (!res.ok) {
-			throw new Error(`Failed to fetch timers: ${res.status} ${res.statusText}`);
-		}
-
-		const data = await res.json();
+		const data = await handleResponse(res, 'Failed to fetch timers');
 		return data.Items || [];
 	} catch (e) {
 		console.error('getTimers error:', e);
@@ -694,11 +665,7 @@ export async function getSeriesTimers(token) {
 			...opts
 		});
 
-		if (!res.ok) {
-			throw new Error(`Failed to fetch series timers: ${res.status} ${res.statusText}`);
-		}
-
-		const data = await res.json();
+		const data = await handleResponse(res, 'Failed to fetch series timers');
 		return data.Items || [];
 	} catch (e) {
 		console.error('getSeriesTimers error:', e);
@@ -730,10 +697,7 @@ export async function deleteRecording(token, recordingId) {
 			...opts
 		});
 
-		if (!res.ok) {
-			throw new Error(`Failed to delete recording: ${res.status} ${res.statusText}`);
-		}
-
+		await handleResponse(res, 'Failed to delete recording');
 		return true;
 	} catch (e) {
 		console.error('deleteRecording error:', e);
@@ -761,10 +725,7 @@ export async function cancelTimer(token, timerId) {
 			...opts
 		});
 
-		if (!res.ok) {
-			throw new Error(`Failed to cancel timer: ${res.status} ${res.statusText}`);
-		}
-
+		await handleResponse(res, 'Failed to cancel timer');
 		return true;
 	} catch (e) {
 		console.error('cancelTimer error:', e);
