@@ -17,10 +17,11 @@ export async function load({ cookies, locals }) {
 
     try {
         // Fetch timers, recordings and upcoming programs concurrently
-        const [timers, recordings, programs] = await Promise.all([
+        const [timers, recordings, programs, onAirPrograms] = await Promise.all([
             jellyfin.getTimers(sessionId),
             jellyfin.getRecordings(userId, sessionId),
-            jellyfin.getPrograms(userId, sessionId, 500) // Fetch next 500 programs to find premieres
+            jellyfin.getPrograms(userId, sessionId, 500), // Fetch next 500 programs to find premieres
+            jellyfin.getOnAir(userId, sessionId)
         ]);
 
         // Filter for premieres
@@ -37,7 +38,7 @@ export async function load({ cookies, locals }) {
                 );
 
                 results.forEach(result => {
-                    if (result.status === 'fulfilled') {
+                    if (result.status === 'fulfilled' && result.value) {
                         const item = result.value;
                         const matchingTimers = timers.filter(t => t.ProgramId === item.Id);
 
@@ -64,7 +65,7 @@ export async function load({ cookies, locals }) {
 
         // Process timers for Scheduled Recordings list
         const scheduledRecordings = (timers || []).sort((a, b) => {
-            return new Date(a.StartDate) - new Date(b.StartDate);
+            return new Date(a.StartDate).getTime() - new Date(b.StartDate).getTime();
         });
 
         // Group timers by Series/Movie (Scheduled) for My Library identification
@@ -172,6 +173,7 @@ export async function load({ cookies, locals }) {
             scheduledRecordings,
             monitoredSeries: seriesWithImages,
             premieres,
+            onAir: onAirPrograms,
             JELLYFIN_HOST,
             showWelcomeBanner,
             token: sessionId

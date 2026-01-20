@@ -229,7 +229,48 @@ export async function getPrograms(userId, token, limit = 100, searchTerm = null,
 }
 
 /**
- * Get Program Details
+	* Get currently airing programs
+	* @param {string} userId
+	* @param {string} token
+	* @returns {Promise<JellyfinProgram[]>}
+	*/
+export async function getOnAir(userId, token) {
+	try {
+		const now = new Date().toISOString();
+		const params = new URLSearchParams({
+			UserId: userId,
+			SortBy: 'StartDate',
+			EnableTotalRecordCount: 'false',
+			ImageTypeLimit: '1',
+			EnableImageTypes: 'Primary',
+			MaxStartDate: now,
+			MinEndDate: now,
+			Fields:
+				'SeriesId,ProgramId,EpisodeTitle,Name,SeasonId,ParentIndexNumber,IndexNumber,StartDate,EndDate,SeriesName,ChannelName,ChannelId,ImageTags,SeriesPrimaryImageTag,BackdropImageTags'
+		});
+
+		const host = await getHost();
+		const opts = await getFetchOpts();
+		const res = await fetch(`${host}/LiveTv/Programs?${params.toString()}`, {
+			headers: {
+				...headers,
+				'X-Emby-Token': token
+			},
+			...opts
+		});
+
+		const data = await handleResponse(res, 'Failed to fetch on-air programs');
+		return data.Items || [];
+	} catch (e) {
+		console.error('getOnAir error:', e);
+		// @ts-expect-error: ignore status
+		if (e?.status === 401) throw e;
+		return [];
+	}
+}
+
+/**
+	* Get Program Details
  * @param {string} userId
  * @param {string} token
  * @param {string} programId

@@ -163,6 +163,96 @@
         <!-- Main Content Column -->
         <div class="lg:col-span-2 space-y-10">
             
+            <!-- Live Now -->
+            {#if data.onAir && data.onAir.length > 0}
+            <section id="on-air" class="scroll-mt-24">
+                 <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                        <span class="relative flex h-3 w-3 mr-1">
+                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                          <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                        </span>
+                        On Air Now
+                    </h2>
+                    <a href="/guide" class="text-sm font-medium text-accent hover:text-accent-glow transition-colors">View All</a>
+                </div>
+                
+                <div class="flex overflow-x-auto gap-4 pb-4 snap-x scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent -mx-6 px-6 md:mx-0 md:px-0">
+                    {#each data.onAir as prog}
+                        <div class="flex-shrink-0 w-[280px] bg-card hover:bg-card-hover border border-white/5 rounded-2xl p-3 flex flex-col gap-3 transition-all duration-300 hover:shadow-lg hover:shadow-black/20 group relative snap-start">
+                            <!-- Image -->
+                            <div class="relative w-full aspect-[3/2] rounded-xl overflow-hidden bg-gray-800 shadow-md">
+                                {#if prog.BackdropImageTags && prog.BackdropImageTags.length > 0}
+                                    <img
+                                        src="{data.JELLYFIN_HOST}/Items/{prog.Id}/Images/Backdrop/0?Tag={prog.BackdropImageTags[0]}&fillWidth=400&quality=90&api_key={data.token}"
+                                        alt={prog.Name}
+                                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                        on:error={handleImageError}
+                                    />
+                                {:else if prog.ImageTags && prog.ImageTags.Thumb}
+                                    <img
+                                        src="{data.JELLYFIN_HOST}/Items/{prog.Id}/Images/Thumb?Tag={prog.ImageTags.Thumb}&fillWidth=400&quality=90&api_key={data.token}"
+                                        alt={prog.Name}
+                                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                        on:error={handleImageError}
+                                    />
+                                {:else if prog.SeriesPrimaryImageTag}
+                                     <img
+                                        src="{data.JELLYFIN_HOST}/Items/{prog.SeriesId}/Images/Primary?Tag={prog.SeriesPrimaryImageTag}&fillWidth=400&quality=90&api_key={data.token}"
+                                        alt={prog.Name}
+                                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                        on:error={handleImageError}
+                                    />
+                                {:else if prog.ImageTags && prog.ImageTags.Primary}
+                                    <img
+                                        src="{data.JELLYFIN_HOST}/Items/{prog.Id}/Images/Primary?Tag={prog.ImageTags.Primary}&fillWidth=400&quality=90&api_key={data.token}"
+                                        alt={prog.Name}
+                                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                        on:error={handleImageError}
+                                    />
+                                {:else}
+                                    <div class="w-full h-full flex items-center justify-center bg-white/5 text-gray-500">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                        </svg>
+                                    </div>
+                                {/if}
+
+                                <!-- Overlay Live Badge -->
+                                <div class="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm">
+                                    LIVE
+                                </div>
+                                
+                                <!-- Progress Bar Overlay -->
+                                <div class="absolute bottom-0 left-0 h-1 bg-black/50 w-full">
+                                    <div class="h-full bg-red-500" style="width: {Math.max(0, Math.min(100, ((now - new Date(prog.StartDate)) / (new Date(prog.EndDate) - new Date(prog.StartDate))) * 100))}%;"></div>
+                                </div>
+                            </div>
+
+                            <!-- Content -->
+                            <div class="flex flex-col min-w-0">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-[10px] font-bold text-gray-400 bg-white/5 px-1.5 py-0.5 rounded uppercase tracking-wider truncate max-w-full">
+                                        {prog.ChannelName}
+                                    </span>
+                                </div>
+                                <h3 class="font-bold text-base text-white leading-tight mb-0.5 truncate" title={prog.Name}>{prog.Name}</h3>
+                                {#if prog.EpisodeTitle && prog.Name !== prog.EpisodeTitle}
+                                    <p class="text-gray-400 text-xs truncate">{prog.EpisodeTitle}</p>
+                                {/if}
+                                
+                                <div class="mt-1 flex items-center gap-2 text-[10px] text-gray-500 font-medium">
+                                    <span>{new Date(prog.StartDate).toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'})}</span>
+                                    <span class="w-1 h-1 rounded-full bg-gray-700"></span>
+                                    <span>{new Date(prog.EndDate).toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'})}</span>
+                                </div>
+                            </div>
+                        </div>
+                    {/each}
+                </div>
+            </section>
+            {/if}
+
             <!-- Upcoming Premieres -->
             {#if data.premieres.length > 0}
             <section id="premieres" class="scroll-mt-24">
