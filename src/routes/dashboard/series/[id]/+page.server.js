@@ -309,11 +309,12 @@ export async function load({ params, locals }) {
         }
 
     } catch (e) {
-        console.error('Error fetching Jellyfin data (continuing anyway):', e);
-        if (e.status === 401 || (e.message && e.message.includes('401'))) {
-             throw redirect(303, '/login');
-        }
-        // We continue without Jellyfin data so the user can still see show info
+    	// @ts-expect-error: ignore status
+    	if (e.status === 401 || (e.message && e.message.includes('401'))) {
+                throw redirect(303, '/login');
+    	}
+    	console.error('Error fetching Jellyfin data (continuing anyway):', e);
+    	// We continue without Jellyfin data so the user can still see show info
     }
 
     // 5. Merge Data

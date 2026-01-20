@@ -44,6 +44,7 @@ import { Agent } from 'undici';
  * @property {any} [CommunityRating]
  * @property {string} [OfficialRating]
  * @property {string[]} [Genres]
+ * @property {string} [TimerId]
  */
 
 const headers = {
@@ -167,9 +168,9 @@ export async function getChannels(userId, token) {
 		const data = await handleResponse(res, 'Failed to fetch channels');
 		return data.Items || [];
 	} catch (e) {
-		console.error('getChannels error:', e);
 		// @ts-expect-error: ignore status
 		if (e?.status === 401) throw e;
+		console.error('getChannels error:', e);
 		return [];
 	}
 }
@@ -221,9 +222,9 @@ export async function getPrograms(userId, token, limit = 100, searchTerm = null,
 		const data = await handleResponse(res, 'Failed to fetch programs');
 		return data.Items || [];
 	} catch (e) {
-		console.error('getPrograms error:', e);
 		// @ts-expect-error: ignore status
 		if (e?.status === 401) throw e;
+		console.error('getPrograms error:', e);
 		return [];
 	}
 }
@@ -262,9 +263,9 @@ export async function getOnAir(userId, token) {
 		const data = await handleResponse(res, 'Failed to fetch on-air programs');
 		return data.Items || [];
 	} catch (e) {
-		console.error('getOnAir error:', e);
 		// @ts-expect-error: ignore status
 		if (e?.status === 401) throw e;
+		console.error('getOnAir error:', e);
 		return [];
 	}
 }
@@ -296,9 +297,9 @@ export async function getProgram(userId, token, programId) {
 
 		return await handleResponse(res, 'Failed to fetch program details');
 	} catch (e) {
-		console.error('getProgram error:', e);
 		// @ts-expect-error: ignore status
 		if (e?.status === 401) throw e;
+		console.error('getProgram error:', e);
 		return null;
 	}
 }
@@ -336,9 +337,9 @@ export async function getItems(userId, token, ids) {
 		});
 		return data.Items || [];
 	} catch (e) {
-		console.error('getItems error:', e);
 		// @ts-expect-error: ignore status
 		if (e?.status === 401) throw e;
+		console.error('getItems error:', e);
 		return [];
 	}
 }
@@ -380,9 +381,9 @@ export async function getEpisodes(userId, token, seriesId, seasonId = null) {
 		const data = await handleResponse(res, 'Failed to fetch episodes');
 		return data.Items || [];
 	} catch (e) {
-		console.error('getEpisodes error:', e);
 		// @ts-expect-error: ignore status
 		if (e?.status === 401) throw e;
+		console.error('getEpisodes error:', e);
 		return [];
 	}
 }
@@ -417,9 +418,9 @@ export async function getRecordings(userId, token) {
 		const data = await handleResponse(res, 'Failed to fetch recordings');
 		return data.Items || [];
 	} catch (e) {
-		console.error('getRecordings error:', e);
 		// @ts-expect-error: ignore status
 		if (e?.status === 401) throw e;
+		console.error('getRecordings error:', e);
 		return [];
 	}
 }
@@ -471,9 +472,9 @@ export async function searchItems(userId, token, searchTerm, types = ['Series'])
 		const data = await handleResponse(res, 'Failed to search items');
 		return data.Items || [];
 	} catch (e) {
-		console.error('searchItems error:', e);
 		// @ts-expect-error: ignore status
 		if (e?.status === 401) throw e;
+		console.error('searchItems error:', e);
 		return [];
 	}
 }
@@ -499,9 +500,9 @@ export async function getChannel(userId, token, channelId) {
 
 		return await handleResponse(res, 'Failed to fetch channel details');
 	} catch (e) {
-		console.error('getChannel error:', e);
 		// @ts-expect-error: ignore status
 		if (e?.status === 401) throw e;
+		console.error('getChannel error:', e);
 		return null;
 	}
 }
@@ -539,6 +540,12 @@ export async function scheduleRecording(token, programId, isSeries = false, user
 			}
 		} catch (e) {
 			console.error('Failed to fetch program details for recording', e);
+		}
+
+		// Check if already scheduled (Single Timer)
+		if (!isSeries && program && program.TimerId) {
+			console.log(`Program ${programId} is already scheduled (TimerId: ${program.TimerId}). Skipping.`);
+			return { Status: 'Completed', Id: program.TimerId, AlreadyExists: true };
 		}
 
 		/** @type {any} */
@@ -595,6 +602,18 @@ export async function scheduleRecording(token, programId, isSeries = false, user
 				}
 			} catch (e) {
 				console.warn('Failed to fetch recording defaults', e);
+			}
+
+			// Ensure Type is correct for Single Recording
+			if (payload && payload.Type === 'SeriesTimer') {
+				console.warn('Defaults returned SeriesTimer for a single recording. Converting to Program Timer.');
+				payload.Type = 'Timer'; // Or remove it
+				delete payload.Id; // Don't use the ID generated for a SeriesTimer
+				// Reset some series specific fields if needed
+				payload.RecordAnyTime = false;
+				payload.RecordNewOnly = false;
+				// Ensure TimerType is set
+				payload.TimerType = 'Program';
 			}
 
 			if (!payload) {
@@ -706,9 +725,9 @@ export async function getTimers(token) {
 		const data = await handleResponse(res, 'Failed to fetch timers');
 		return data.Items || [];
 	} catch (e) {
-		console.error('getTimers error:', e);
 		// @ts-expect-error: ignore status
 		if (e?.status === 401) throw e;
+		console.error('getTimers error:', e);
 		return [];
 	}
 }
@@ -733,9 +752,9 @@ export async function getSeriesTimers(token) {
 		const data = await handleResponse(res, 'Failed to fetch series timers');
 		return data.Items || [];
 	} catch (e) {
-		console.error('getSeriesTimers error:', e);
 		// @ts-expect-error: ignore status
 		if (e?.status === 401) throw e;
+		console.error('getSeriesTimers error:', e);
 		return [];
 	}
 }

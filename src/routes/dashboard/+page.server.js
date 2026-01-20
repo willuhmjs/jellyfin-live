@@ -179,11 +179,12 @@ export async function load({ cookies, locals }) {
             token: sessionId
         };
     } catch (e) {
-        console.error('Error fetching dashboard data:', e);
-        if (e.status === 401 || (e.message && e.message.includes('401'))) {
-            throw redirect(303, '/login');
-        }
-        return {
+    	// @ts-ignore
+    	if (e.status === 401 || (e.message && e.message.includes('401'))) {
+    		throw redirect(303, '/login');
+    	}
+    	console.error('Error fetching dashboard data:', e);
+    	return {
             scheduledRecordings: [],
             monitoredSeries: [],
             premieres: [],
