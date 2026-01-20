@@ -15,8 +15,8 @@ export async function load({ locals }) {
 		const channels = await jellyfin.getChannels(userId, sessionId);
 		// Fetch programs. 25000 limit to ensure we cover enough time for all channels.
 		// API returns programs sorted by StartDate.
-		// Fetch programs ending after 3 hour ago to populate the previous block
-		const minEndDate = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+		// Fetch programs ending after 1 hour ago to populate the previous block
+		const minEndDate = new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString();
 		let programs = await jellyfin.getPrograms(userId, sessionId, 25000, null, minEndDate);
 
 		// Fetch active timers (recordings) and series timers
