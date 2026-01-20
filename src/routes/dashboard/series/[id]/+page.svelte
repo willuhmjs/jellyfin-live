@@ -19,10 +19,10 @@
 
     // React to form result
     $: if (form?.success) {
-        toast.set({ message: form.message || 'Series recording scheduled!', type: 'success' });
+        toast.add(form.message || 'Series recording scheduled!', 'success');
         // Optimistic update could happen here, but we rely on page reload for isMonitored update
     } else if (form?.message) {
-        toast.set({ message: form.message, type: 'error' });
+        toast.add(form.message, 'error');
     }
 </script>
 

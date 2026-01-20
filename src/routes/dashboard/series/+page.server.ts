@@ -2,8 +2,12 @@ import { redirect } from '@sveltejs/kit';
 import * as jellyfin from '$lib/server/jellyfin';
 import * as tvmaze from '$lib/server/tvmaze';
 import * as db from '$lib/server/db';
+import type { PageServerLoad } from './$types';
 
-export async function load({ cookies }) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyObject = any;
+
+export const load: PageServerLoad = async ({ cookies }) => {
     const sessionId = cookies.get('session_id');
     const user_id = cookies.get('user_id');
 
@@ -21,7 +25,7 @@ export async function load({ cookies }) {
         ]);
 
         // Group timers by Series/Movie (Scheduled) for My Library identification
-        const timerGroups = {};
+        const timerGroups: Record<string, AnyObject> = {};
         for (const timer of (timers || [])) {
             const groupId = timer.SeriesId || timer.Name;
             const isMovie = !timer.SeriesId;
@@ -91,7 +95,7 @@ export async function load({ cookies }) {
             }
         }
 
-        const monitoredSeries = Array.from(monitoredSeriesMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+        const monitoredSeries = Array.from(monitoredSeriesMap.values()).sort((a: AnyObject, b: AnyObject) => a.name.localeCompare(b.name));
 
         // Enrich with TVMaze images
         const seriesWithImages = [];
@@ -114,7 +118,7 @@ export async function load({ cookies }) {
                 // Add a small delay to be polite
                 await new Promise(resolve => setTimeout(resolve, 50)); // Faster delay for full list
                 const results = await tvmaze.searchShows(series.name);
-                const match = results.find(r => r.show.name.toLowerCase() === series.name.toLowerCase()) || results[0];
+                const match = results.find((r: AnyObject) => r.show.name.toLowerCase() === series.name.toLowerCase()) || results[0];
 
                 if (match && match.show.image) {
                     seriesWithImages.push({
@@ -124,8 +128,9 @@ export async function load({ cookies }) {
                 } else {
                     seriesWithImages.push(series);
                 }
-            } catch (e) {
-                console.warn(`Failed to fetch TVMaze image for ${series.name}:`, e.message);
+            } catch (e: unknown) {
+                const err = e as AnyObject;
+                console.warn(`Failed to fetch TVMaze image for ${series.name}:`, err.message);
                 seriesWithImages.push(series);
             }
         }
@@ -135,9 +140,10 @@ export async function load({ cookies }) {
             JELLYFIN_HOST,
             token: sessionId
         };
-    } catch (e) {
+    } catch (e: unknown) {
         console.error('Error fetching series data:', e);
-        if (e.status === 401 || (e.message && e.message.includes('401'))) {
+        const err = e as AnyObject;
+        if (err.status === 401 || (err.message && err.message.includes('401'))) {
             throw redirect(303, '/login');
         }
         return {

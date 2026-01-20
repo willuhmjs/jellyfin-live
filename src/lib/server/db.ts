@@ -3,27 +3,26 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
 import { env } from '$env/dynamic/private';
 
-const globalForPrisma = global;
+const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
 const connectionString = env.DATABASE_URL;
 const pool = new pg.Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 
-/** @type {import('@prisma/client').PrismaClient} */
 export const db = globalForPrisma.prisma || new PrismaClient({ adapter });
 
 if (process.env.NODE_ENV !== 'production') {
     globalForPrisma.prisma = db;
 }
 
-export async function getSetting(key) {
+export async function getSetting(key: string): Promise<string | null> {
     const setting = await db.setting.findUnique({
         where: { key }
     });
     return setting ? setting.value : null;
 }
 
-export async function setSetting(key, value) {
+export async function setSetting(key: string, value: string): Promise<void> {
     await db.setting.upsert({
         where: { key },
         update: { value },
@@ -31,7 +30,7 @@ export async function setSetting(key, value) {
     });
 }
 
-export async function getSeriesImage(name) {
+export async function getSeriesImage(name: string): Promise<string | null> {
     const trimmedName = name.trim();
     // Try exact match first
     let img = await db.seriesImage.findUnique({
@@ -53,7 +52,7 @@ export async function getSeriesImage(name) {
     return img ? img.imageUrl : null;
 }
 
-export async function saveSeriesImage(name, url) {
+export async function saveSeriesImage(name: string, url: string): Promise<void> {
     const trimmedName = name.trim();
     await db.seriesImage.upsert({
         where: { name: trimmedName },
@@ -62,7 +61,7 @@ export async function saveSeriesImage(name, url) {
     });
 }
 
-export async function getTvMazeCache(endpoint) {
+export async function getTvMazeCache(endpoint: string): Promise<{ data: any; updated_at: number } | null> {
     const cache = await db.tvMazeCache.findUnique({
         where: { endpoint }
     });
@@ -75,7 +74,7 @@ export async function getTvMazeCache(endpoint) {
     };
 }
 
-export async function setTvMazeCache(endpoint, data, timestamp) {
+export async function setTvMazeCache(endpoint: string, data: any, timestamp: number): Promise<void> {
     await db.tvMazeCache.upsert({
         where: { endpoint },
         update: {

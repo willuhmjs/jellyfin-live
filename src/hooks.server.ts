@@ -1,7 +1,7 @@
 import { getSetting } from '$lib/server/db';
-import { redirect } from '@sveltejs/kit';
+import { redirect, type Handle } from '@sveltejs/kit';
 
-export async function handle({ event, resolve }) {
+export const handle: Handle = async ({ event, resolve }) => {
     const url = event.url.pathname;
 
     // Allow static assets
@@ -9,7 +9,7 @@ export async function handle({ event, resolve }) {
         return resolve(event);
     }
 
-    let jellyfinUrl = null;
+    let jellyfinUrl: string | null = null;
     try {
         jellyfinUrl = await getSetting('jellyfin_url');
     } catch (e) {
@@ -45,4 +45,4 @@ export async function handle({ event, resolve }) {
     }
 
     return resolve(event);
-}
+};

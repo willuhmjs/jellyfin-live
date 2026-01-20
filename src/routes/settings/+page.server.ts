@@ -1,14 +1,15 @@
 import { getSetting, setSetting } from '$lib/server/db';
 import { fail } from '@sveltejs/kit';
+import type { PageServerLoad, Actions } from './$types';
 
-export async function load() {
+export const load: PageServerLoad = async () => {
     return {
         jellyfin_url: await getSetting('jellyfin_url'),
         ignore_ssl: (await getSetting('ignore_ssl')) === 'true'
     };
 }
 
-export const actions = {
+export const actions: Actions = {
     default: async ({ request }) => {
         const data = await request.formData();
         const jellyfin_url = data.get('jellyfin_url');
@@ -18,7 +19,7 @@ export const actions = {
             return fail(400, { missing: true });
         }
 
-        await setSetting('jellyfin_url', jellyfin_url);
+        await setSetting('jellyfin_url', jellyfin_url as string);
         await setSetting('ignore_ssl', ignore_ssl ? 'true' : 'false');
 
         return { success: true };

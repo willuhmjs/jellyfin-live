@@ -1,8 +1,9 @@
 import * as jellyfin from '$lib/server/jellyfin';
 import * as tvmaze from '$lib/server/tvmaze';
 import { json } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
 
-export async function GET({ params, cookies }) {
+export const GET: RequestHandler = async ({ params, cookies }) => {
     const { id } = params;
     const sessionId = cookies.get('session_id');
     const userId = cookies.get('user_id');
@@ -12,14 +13,16 @@ export async function GET({ params, cookies }) {
     }
 
     try {
-        const program = await jellyfin.getProgram(userId, sessionId, id);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const program: any = await jellyfin.getProgram(userId, sessionId, id);
 
         // Enhance with TVMaze data if possible
         if (program) {
             const searchName = program.SeriesName || program.Name;
             if (searchName) {
                 try {
-                    const results = await tvmaze.searchShows(searchName);
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const results: any[] = await tvmaze.searchShows(searchName);
                     if (results && results.length > 0) {
                         const show = results[0].show;
                         
@@ -68,10 +71,10 @@ export async function GET({ params, cookies }) {
         }
 
         return json(program);
-    } catch (e) {
+    } catch (e: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
         if (e.status === 401 || (e.message && e.message.includes('401'))) {
             return json({ error: 'Unauthorized' }, { status: 401 });
         }
-        return json({ error: e.message }, { status: 500 });
+        return json({ error: e.message || 'Unknown error' }, { status: 500 });
     }
-}
+};

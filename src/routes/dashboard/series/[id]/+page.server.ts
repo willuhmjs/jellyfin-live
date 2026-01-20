@@ -3,8 +3,12 @@ import * as jellyfin from '$lib/server/jellyfin';
 import * as db from '$lib/server/db';
 import { normalizeShow, cleanName } from '$lib/server/normalization';
 import { fail, redirect } from '@sveltejs/kit';
+import type { PageServerLoad, Actions } from './$types';
 
-export async function load({ params, locals }) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyObject = any;
+
+export const load: PageServerLoad = async ({ params, locals }) => {
     if (!locals.user) {
         return {
             show: null,
@@ -20,12 +24,12 @@ export async function load({ params, locals }) {
     const JELLYFIN_HOST = await jellyfin.getHost();
     
     // 1. Fetch TVMaze Data
-    let show;
+    let show: AnyObject | null = null;
     let jellyfinFallback = false;
-    let matchedJellyfinItem = null;
+    let matchedJellyfinItem: AnyObject | null = null;
 
     // Helper to attempt Jellyfin Fallback
-    const attemptJellyfinFallback = async (jellyfinId) => {
+    const attemptJellyfinFallback = async (jellyfinId: string) => {
         try {
             console.log(`Attempting Jellyfin fallback for ID: ${jellyfinId}`);
             const items = await jellyfin.getItems(user.Id, token, [jellyfinId]);
@@ -68,7 +72,11 @@ export async function load({ params, locals }) {
                 const isMovie = jShow.Type === 'Movie';
                 
                 // Construct "Lite" Show Object using normalization
-                let normalizedShow = normalizeShow(jShow, 'jellyfin', JELLYFIN_HOST);
+                let normalizedShow: AnyObject = normalizeShow(jShow, 'jellyfin', JELLYFIN_HOST);
+                if (!normalizedShow) {
+                     // Should not happen if item exists but handle it
+                     return null;
+                }
                 console.log(`Successfully fell back to Jellyfin ${isMovie ? 'movie' : 'series'}: ${normalizedShow.name}`);
 
                 // Attempt to upgrade to full TVMaze object
@@ -96,7 +104,7 @@ export async function load({ params, locals }) {
                             console.log(`Searching TVMaze by name: ${normalizedShow.name}`);
                             const results = await tvmaze.searchShows(normalizedShow.name);
                             // Use cleanName for better matching
-                            const match = results.find(r => cleanName(r.show.name) === cleanName(normalizedShow.name)) || results[0];
+                            const match = results.find((r: AnyObject) => cleanName(r.show.name) === cleanName(normalizedShow.name)) || results[0];
 
                             if (match) {
                                 // 1. Try to fetch full TVMaze object (Upgrade)
@@ -164,12 +172,12 @@ export async function load({ params, locals }) {
         };
     }
 
-    let jellyfinEpisodes = [];
+    let jellyfinEpisodes: AnyObject[] = [];
     let isMonitored = false;
     let seriesTimerId = null;
     let jellyfinSeriesId = jellyfinFallback ? show.id : null;
-    let guidePrograms = [];
-    let scheduledTimers = [];
+    let guidePrograms: AnyObject[] = [];
+    let scheduledTimers: AnyObject[] = [];
 
 
     try {
@@ -187,14 +195,14 @@ export async function load({ params, locals }) {
             const jellyfinSeriesResults = await jellyfin.getSeries(user.Id, token, show.name);
             
             // Match using cleanName for better flexibility
-            jellyfinSeries = jellyfinSeriesResults.find(s =>
-                cleanName(s.Name) === cleanName(show.name)
+            jellyfinSeries = jellyfinSeriesResults.find((s: AnyObject) =>
+                cleanName(s.Name) === cleanName(show!.name)
             );
 
             // If not found in library, check if it exists as a Series Timer
             // This allows us to save the image for "Scheduled" shows that aren't in the library yet
             if (!jellyfinSeries) {
-                const timer = allSeriesTimers.find(t => cleanName(t.Name) === cleanName(show.name));
+                const timer = allSeriesTimers.find((t: AnyObject) => cleanName(t.Name) === cleanName(show!.name));
                 if (timer) {
                     console.log(`Found Series Timer for ${show.name}, using as Jellyfin Series fallback.`);
                     jellyfinSeries = { Id: timer.SeriesId || timer.Id, Name: timer.Name };
@@ -236,7 +244,7 @@ export async function load({ params, locals }) {
             
             // Populate show._embedded.episodes if fallback
             if (jellyfinFallback && jellyfinEpisodes.length > 0) {
-                show._embedded.episodes = jellyfinEpisodes.map(ep => ({
+                show._embedded.episodes = jellyfinEpisodes.map((ep: AnyObject) => ({
                     id: ep.Id,
                     season: ep.ParentIndexNumber || 1,
                     number: ep.IndexNumber || 0,
@@ -250,7 +258,7 @@ export async function load({ params, locals }) {
 
             // 4. Check for Series Timer (to set isMonitored if not already set)
             if (!isMonitored) {
-                const timer = allSeriesTimers.find(t => t.Name === show.name || (t.SeriesId && t.SeriesId === jellyfinSeries.Id));
+                const timer = allSeriesTimers.find((t: AnyObject) => t.Name === show!.name || (t.SeriesId && t.SeriesId === jellyfinSeries.Id));
                 if (timer) {
                     isMonitored = true;
                     seriesTimerId = timer.Id;
@@ -267,26 +275,26 @@ export async function load({ params, locals }) {
         ]);
         
         if (programsResult.status === 'fulfilled') {
-            guidePrograms = programsResult.value;
+            guidePrograms = programsResult.value as AnyObject[];
         }
         if (timersResult.status === 'fulfilled') {
-            scheduledTimers = timersResult.value;
+            scheduledTimers = timersResult.value as AnyObject[];
 
             // Enrich timers with missing EpisodeTitle
-            const timersToEnrich = scheduledTimers.filter(t => !t.EpisodeTitle && t.ProgramId);
+            const timersToEnrich = scheduledTimers.filter((t: AnyObject) => !t.EpisodeTitle && t.ProgramId);
             if (timersToEnrich.length > 0) {
-                 const programIds = [...new Set(timersToEnrich.map(t => t.ProgramId))];
+                 const programIds = [...new Set(timersToEnrich.map((t: AnyObject) => t.ProgramId))];
                  try {
                      const results = await Promise.allSettled(
-                         programIds.map(id => jellyfin.getProgram(user.Id, token, id))
+                         programIds.map((id: unknown) => jellyfin.getProgram(user.Id, token, id as string))
                      );
                      
-                     results.forEach(result => {
+                     results.forEach((result: PromiseSettledResult<AnyObject>) => {
                          if (result.status === 'fulfilled') {
                              const item = result.value;
-                             const matchingTimers = scheduledTimers.filter(t => t.ProgramId === item.Id);
+                             const matchingTimers = scheduledTimers.filter((t: AnyObject) => t.ProgramId === item.Id);
                              
-                             matchingTimers.forEach(t => {
+                             matchingTimers.forEach((t: AnyObject) => {
                                  t.EpisodeTitle = item.EpisodeTitle || item.Name;
                                  
                                  if (t.Name === t.SeriesName && item.Name && item.Name !== t.SeriesName) {
@@ -308,9 +316,9 @@ export async function load({ params, locals }) {
             }
         }
 
-    } catch (e) {
-    	// @ts-expect-error: ignore status
-    	if (e.status === 401 || (e.message && e.message.includes('401'))) {
+    } catch (e: unknown) {
+        const err = e as AnyObject;
+    	if (err.status === 401 || (err.message && err.message.includes('401'))) {
                 throw redirect(303, '/login');
     	}
     	console.error('Error fetching Jellyfin data (continuing anyway):', e);
@@ -318,24 +326,24 @@ export async function load({ params, locals }) {
     }
 
     // 5. Merge Data
-    const seasons = {};
+    const seasons: Record<string, AnyObject[]> = {};
     const matchedTimerIds = new Set();
     
     // matchName helper reusing cleanName
-    const matchName = (target, ...candidates) => {
+    const matchName = (target: string, ...candidates: (string | undefined)[]) => {
         const cleanTarget = cleanName(target);
         if (!cleanTarget) return false;
         return candidates.some(c => cleanName(c) === cleanTarget);
     };
 
     // Filter timers for this series
-    const showTimers = scheduledTimers.filter(t => {
+    const showTimers = scheduledTimers.filter((t: AnyObject) => {
         // Match by SeriesId if available
         if (jellyfinSeriesId && (t.SeriesId === jellyfinSeriesId || t.ParentId === jellyfinSeriesId)) return true;
         // Match by Name (SeriesName or Name if generic)
-        if (t.SeriesName && cleanName(t.SeriesName) === cleanName(show.name)) return true;
+        if (t.SeriesName && cleanName(t.SeriesName) === cleanName(show!.name)) return true;
         // Fallback: If Name is series name
-        if (cleanName(t.Name) === cleanName(show.name)) return true;
+        if (cleanName(t.Name) === cleanName(show!.name)) return true;
         return false;
     });
 
@@ -345,7 +353,7 @@ export async function load({ params, locals }) {
         
         console.log(`No episodes found. Creating ${showTimers.length} virtual episodes from timers.`);
         
-        show._embedded.episodes = showTimers.map(t => ({
+        show._embedded.episodes = showTimers.map((t: AnyObject) => ({
             id: t.Id,
             name: t.EpisodeTitle || t.Name || 'Scheduled Program',
             season: t.ParentIndexNumber || 1,
@@ -383,8 +391,9 @@ export async function load({ params, locals }) {
             if (ep.airstamp) {
                 isUpcoming = new Date(ep.airstamp) > new Date();
             } else if (ep.airdate) {
-                const now = new Date();
-                const todayStr = now.toISOString().split('T')[0];
+                // const now = new Date();
+                // const todayStr = now.toISOString().split('T')[0];
+                const todayStr = new Date().toISOString().split('T')[0];
                 isUpcoming = ep.airdate >= todayStr;
             }
 
@@ -407,7 +416,7 @@ export async function load({ params, locals }) {
             });
 
             // Check if ALREADY recording (using timers directly, independent of guide match)
-            const recordingTimer = showTimers.find(t => {
+            const recordingTimer = showTimers.find((t: AnyObject) => {
                  // Use loose equality for season/episode numbers
                  if (t.ParentIndexNumber == ep.season && t.IndexNumber == ep.number) return true;
                  if (matchName(ep.name, t.Name, t.EpisodeTitle)) return true;
@@ -438,7 +447,7 @@ export async function load({ params, locals }) {
         }
     }
 
-    const unmappedRecordings = showTimers.filter(t => !matchedTimerIds.has(t.Id || t.ProgramId));
+    const unmappedRecordings = showTimers.filter((t: AnyObject) => !matchedTimerIds.has(t.Id || t.ProgramId));
 
     return {
         show,
@@ -452,7 +461,7 @@ export async function load({ params, locals }) {
     };
 }
 
-export const actions = {
+export const actions: Actions = {
     recordSeries: async ({ request, locals }) => {
         if (!locals.user) {
             return fail(401, { message: 'Unauthorized' });
@@ -468,14 +477,14 @@ export const actions = {
         try {
             // 1. Search Guide for any airing of this show to get a ProgramId
             // We need a ProgramId to create a Series Timer in Jellyfin (API requirement usually)
-            const programs = await jellyfin.getPrograms(locals.user.user.Id, locals.user.token, 50, seriesName);
+            const programs = await jellyfin.getPrograms(locals.user.user.Id, locals.user.token, 50, seriesName as string);
             
             if (!programs || programs.length === 0) {
                  return fail(404, { message: 'No upcoming airings found in guide.' });
             }
 
             // Filter strictly by name to avoid partial matches on other shows
-            const match = programs.find(p => p.Name.toLowerCase() === seriesName.toLowerCase());
+            const match = programs.find((p: AnyObject) => p.Name.toLowerCase() === (seriesName as string).toLowerCase());
 
             if (!match) {
                 return fail(404, { message: 'No upcoming airings found in guide.' });
@@ -504,7 +513,7 @@ export const actions = {
         }
 
         try {
-            await jellyfin.scheduleRecording(locals.user.token, programId, false, locals.user.user.Id);
+            await jellyfin.scheduleRecording(locals.user.token, programId as string, false, locals.user.user.Id);
             return { success: true, message: 'Recording scheduled' };
         } catch (e) {
             console.error('Failed to record episode:', e);
@@ -525,7 +534,7 @@ export const actions = {
         }
 
         try {
-            await jellyfin.cancelTimer(locals.user.token, timerId);
+            await jellyfin.cancelTimer(locals.user.token, timerId as string);
             return { success: true, message: 'Recording cancelled' };
         } catch (e) {
             console.error('Failed to cancel recording:', e);
@@ -546,7 +555,7 @@ export const actions = {
         }
 
         try {
-            await jellyfin.cancelSeriesTimer(locals.user.token, seriesTimerId);
+            await jellyfin.cancelSeriesTimer(locals.user.token, seriesTimerId as string);
             return { success: true, message: 'Series recording cancelled' };
         } catch (e) {
             console.error('Failed to cancel series recording:', e);

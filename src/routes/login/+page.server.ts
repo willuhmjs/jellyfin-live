@@ -1,7 +1,8 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { authenticate } from '$lib/server/jellyfin';
+import type { Actions } from './$types';
 
-export const actions = {
+export const actions: Actions = {
 	default: async ({ request, cookies }) => {
 		const data = await request.formData();
 		const username = data.get('username');
@@ -12,7 +13,7 @@ export const actions = {
 		}
 
 		try {
-			const { user, accessToken } = await authenticate(username, password);
+			const { user, accessToken } = await authenticate(username as string, password as string);
 
 			cookies.set('session_id', accessToken, {
 				path: '/',

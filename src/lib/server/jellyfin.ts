@@ -1,51 +1,6 @@
-import { getSetting } from './db.js';
+import { getSetting } from './db';
 import { Agent } from 'undici';
-
-/**
- * @typedef {Object} JellyfinUser
- * @property {string} Id
- * @property {string} Name
- * @property {string} [Policy]
- */
-
-/**
- * @typedef {Object} JellyfinAuthResult
- * @property {JellyfinUser} user
- * @property {string} accessToken
- */
-
-/**
- * @typedef {Object} JellyfinChannel
- * @property {string} Id
- * @property {string} Name
- * @property {string} ChannelNumber
- * @property {string} [ChannelType]
- */
-
-/**
- * @typedef {Object} JellyfinProgram
- * @property {string} Id
- * @property {string} Name
- * @property {string} ChannelId
- * @property {string} [SeriesId]
- * @property {string} [EpisodeTitle]
- * @property {string} StartDate
- * @property {string} EndDate
- * @property {string} [Overview]
- * @property {string} [SeriesName]
- * @property {string} [ServiceName]
- * @property {string} [SeasonId]
- * @property {number} [ParentIndexNumber]
- * @property {number} [IndexNumber]
- * @property {boolean} [IsPremiere]
- * @property {string} [PremiereDate]
- * @property {any} [ImageTags]
- * @property {string} [ChannelName]
- * @property {any} [CommunityRating]
- * @property {string} [OfficialRating]
- * @property {string[]} [Genres]
- * @property {string} [TimerId]
- */
+import type { JellyfinUser, JellyfinAuthResult, JellyfinChannel, JellyfinProgram } from '$lib/types';
 
 const headers = {
 	'Content-Type': 'application/json',
@@ -53,11 +8,14 @@ const headers = {
 		'MediaBrowser Client="Jellyfin Live", Device="Web", DeviceId="jellyfin-live-web", Version="1.0.0"'
 };
 
+interface FetchOpts extends RequestInit {
+    dispatcher?: Agent;
+}
+
 /**
  * Get fetch options based on settings (e.g. SSL handling)
- * @returns {Promise<RequestInit & { dispatcher?: Agent }>}
  */
-async function getFetchOpts() {
+async function getFetchOpts(): Promise<FetchOpts> {
 	const ignoreSsl = await getSetting('ignore_ssl');
 	if (ignoreSsl === 'true') {
 		return {
@@ -73,11 +31,8 @@ async function getFetchOpts() {
 
 /**
  * Helper to handle response errors
- * @param {Response} res
- * @param {string} errorPrefix
- * @returns {Promise<any>}
  */
-async function handleResponse(res, errorPrefix) {
+async function handleResponse<T>(res: Response, errorPrefix: string): Promise<T | null> {
 	if (!res.ok) {
 		const text = await res.text().catch(() => res.statusText);
 		const error = new Error(`${errorPrefix}: ${res.status} ${text}`);
@@ -90,7 +45,7 @@ async function handleResponse(res, errorPrefix) {
 		return null;
 	}
 	try {
-		return await res.json();
+		return await res.json() as T;
 	} catch {
 		return null;
 	}
@@ -98,10 +53,9 @@ async function handleResponse(res, errorPrefix) {
 
 /**
  * Get the configured Jellyfin host URL
- * @returns {Promise<string>}
  * @throws {Error} If host is not configured
  */
-export async function getHost() {
+export async function getHost(): Promise<string> {
 	const host = await getSetting('jellyfin_url');
 
 	if (!host) {
@@ -114,12 +68,9 @@ export async function getHost() {
 
 /**
  * Authenticate with Jellyfin
- * @param {string} username
- * @param {string} password
- * @returns {Promise<JellyfinAuthResult>}
  * @throws {Error} If authentication fails
  */
-export async function authenticate(username, password) {
+export async function authenticate(username: string, password: string): Promise<JellyfinAuthResult> {
 	try {
 		const host = await getHost();
 		const opts = await getFetchOpts();
@@ -133,7 +84,8 @@ export async function authenticate(username, password) {
 			...opts
 		});
 
-		const data = await handleResponse(res, 'Authentication failed');
+		const data = await handleResponse<{ User: JellyfinUser; AccessToken: string }>(res, 'Authentication failed');
+        if (!data) throw new Error('Authentication returned no data');
 		return {
 			user: data.User,
 			accessToken: data.AccessToken
@@ -146,11 +98,8 @@ export async function authenticate(username, password) {
 
 /**
  * Get Live TV Channels
- * @param {string} userId
- * @param {string} token
- * @returns {Promise<JellyfinChannel[]>}
  */
-export async function getChannels(userId, token) {
+export async function getChannels(userId: string, token: string): Promise<JellyfinChannel[]> {
 	try {
 		const host = await getHost();
 		const opts = await getFetchOpts();
@@ -165,10 +114,9 @@ export async function getChannels(userId, token) {
 			}
 		);
 
-		const data = await handleResponse(res, 'Failed to fetch channels');
-		return data.Items || [];
-	} catch (e) {
-		// @ts-expect-error: ignore status
+		const data = await handleResponse<{ Items: JellyfinChannel[] }>(res, 'Failed to fetch channels');
+		return data?.Items || [];
+	} catch (e: any) {
 		if (e?.status === 401) throw e;
 		console.error('getChannels error:', e);
 		return [];
@@ -177,14 +125,8 @@ export async function getChannels(userId, token) {
 
 /**
  * Get Live TV Programs
- * @param {string} userId
- * @param {string} token
- * @param {number} [limit=100]
- * @param {string|null} [searchTerm=null]
- * @param {string|null} [minEndDate=null]
- * @returns {Promise<JellyfinProgram[]>}
  */
-export async function getPrograms(userId, token, limit = 100, searchTerm = null, minEndDate = null) {
+export async function getPrograms(userId: string, token: string, limit = 100, searchTerm: string | null = null, minEndDate: string | null = null): Promise<JellyfinProgram[]> {
 	try {
 		// Fetch programs for the next 48 hours to be safe, or just use limit.
 		// We'll use HasAired=false to get future programs.
@@ -219,10 +161,9 @@ export async function getPrograms(userId, token, limit = 100, searchTerm = null,
 			...opts
 		});
 
-		const data = await handleResponse(res, 'Failed to fetch programs');
-		return data.Items || [];
-	} catch (e) {
-		// @ts-expect-error: ignore status
+		const data = await handleResponse<{ Items: JellyfinProgram[] }>(res, 'Failed to fetch programs');
+		return data?.Items || [];
+	} catch (e: any) {
 		if (e?.status === 401) throw e;
 		console.error('getPrograms error:', e);
 		return [];
@@ -231,11 +172,8 @@ export async function getPrograms(userId, token, limit = 100, searchTerm = null,
 
 /**
 	* Get currently airing programs
-	* @param {string} userId
-	* @param {string} token
-	* @returns {Promise<JellyfinProgram[]>}
 	*/
-export async function getOnAir(userId, token) {
+export async function getOnAir(userId: string, token: string): Promise<JellyfinProgram[]> {
 	try {
 		const now = new Date().toISOString();
 		const params = new URLSearchParams({
@@ -260,10 +198,9 @@ export async function getOnAir(userId, token) {
 			...opts
 		});
 
-		const data = await handleResponse(res, 'Failed to fetch on-air programs');
-		return data.Items || [];
-	} catch (e) {
-		// @ts-expect-error: ignore status
+		const data = await handleResponse<{ Items: JellyfinProgram[] }>(res, 'Failed to fetch on-air programs');
+		return data?.Items || [];
+	} catch (e: any) {
 		if (e?.status === 401) throw e;
 		console.error('getOnAir error:', e);
 		return [];
@@ -272,12 +209,8 @@ export async function getOnAir(userId, token) {
 
 /**
 	* Get Program Details
- * @param {string} userId
- * @param {string} token
- * @param {string} programId
- * @returns {Promise<JellyfinProgram|null>}
  */
-export async function getProgram(userId, token, programId) {
+export async function getProgram(userId: string, token: string, programId: string): Promise<JellyfinProgram | null> {
 	try {
 		const host = await getHost();
 		const opts = await getFetchOpts();
@@ -295,9 +228,8 @@ export async function getProgram(userId, token, programId) {
 			...opts
 		});
 
-		return await handleResponse(res, 'Failed to fetch program details');
-	} catch (e) {
-		// @ts-expect-error: ignore status
+		return await handleResponse<JellyfinProgram>(res, 'Failed to fetch program details');
+	} catch (e: any) {
 		if (e?.status === 401) throw e;
 		console.error('getProgram error:', e);
 		return null;
@@ -306,12 +238,8 @@ export async function getProgram(userId, token, programId) {
 
 /**
  * Get Items by IDs
- * @param {string} userId
- * @param {string} token
- * @param {string[]} ids
- * @returns {Promise<any[]>}
  */
-export async function getItems(userId, token, ids) {
+export async function getItems(userId: string, token: string, ids: string[]): Promise<any[]> {
 	if (!ids || ids.length === 0) return [];
 
 	try {
@@ -331,13 +259,12 @@ export async function getItems(userId, token, ids) {
 			...opts
 		});
 
-		const data = await handleResponse(res, 'Failed to fetch items by IDs').catch(e => {
+		const data = await handleResponse<{ Items: any[] }>(res, 'Failed to fetch items by IDs').catch(e => {
 			console.warn(e.message);
 			return { Items: [] };
 		});
-		return data.Items || [];
-	} catch (e) {
-		// @ts-expect-error: ignore status
+		return data?.Items || [];
+	} catch (e: any) {
 		if (e?.status === 401) throw e;
 		console.error('getItems error:', e);
 		return [];
@@ -346,13 +273,8 @@ export async function getItems(userId, token, ids) {
 
 /**
  * Get Episodes for a Series/Season
- * @param {string} userId
- * @param {string} token
- * @param {string} seriesId
- * @param {string|null} [seasonId=null]
- * @returns {Promise<any[]>}
  */
-export async function getEpisodes(userId, token, seriesId, seasonId = null) {
+export async function getEpisodes(userId: string, token: string, seriesId: string, seasonId: string | null = null): Promise<any[]> {
 	try {
 		const host = await getHost();
 		const opts = await getFetchOpts();
@@ -378,10 +300,9 @@ export async function getEpisodes(userId, token, seriesId, seasonId = null) {
 			...opts
 		});
 
-		const data = await handleResponse(res, 'Failed to fetch episodes');
-		return data.Items || [];
-	} catch (e) {
-		// @ts-expect-error: ignore status
+		const data = await handleResponse<{ Items: any[] }>(res, 'Failed to fetch episodes');
+		return data?.Items || [];
+	} catch (e: any) {
 		if (e?.status === 401) throw e;
 		console.error('getEpisodes error:', e);
 		return [];
@@ -390,11 +311,8 @@ export async function getEpisodes(userId, token, seriesId, seasonId = null) {
 
 /**
  * Get Recordings
- * @param {string} userId
- * @param {string} token
- * @returns {Promise<any[]>}
  */
-export async function getRecordings(userId, token) {
+export async function getRecordings(userId: string, token: string): Promise<any[]> {
 	try {
 		const params = new URLSearchParams({
 			UserId: userId,
@@ -415,10 +333,9 @@ export async function getRecordings(userId, token) {
 			...opts
 		});
 
-		const data = await handleResponse(res, 'Failed to fetch recordings');
-		return data.Items || [];
-	} catch (e) {
-		// @ts-expect-error: ignore status
+		const data = await handleResponse<{ Items: any[] }>(res, 'Failed to fetch recordings');
+		return data?.Items || [];
+	} catch (e: any) {
 		if (e?.status === 401) throw e;
 		console.error('getRecordings error:', e);
 		return [];
@@ -427,24 +344,15 @@ export async function getRecordings(userId, token) {
 
 /**
  * Get Series from Library
- * @param {string} userId
- * @param {string} token
- * @param {string|null} [searchTerm=null]
- * @returns {Promise<any[]>}
  */
-export async function getSeries(userId, token, searchTerm = null) {
+export async function getSeries(userId: string, token: string, searchTerm: string | null = null): Promise<any[]> {
 	return searchItems(userId, token, searchTerm, ['Series']);
 }
 
 /**
  * Search for Items (Series, Movie, etc)
- * @param {string} userId
- * @param {string} token
- * @param {string|null} searchTerm
- * @param {string[]} [types=['Series']]
- * @returns {Promise<any[]>}
  */
-export async function searchItems(userId, token, searchTerm, types = ['Series']) {
+export async function searchItems(userId: string, token: string, searchTerm: string | null, types: string[] = ['Series']): Promise<any[]> {
 	try {
 		const host = await getHost();
 		const opts = await getFetchOpts();
@@ -469,10 +377,9 @@ export async function searchItems(userId, token, searchTerm, types = ['Series'])
 			...opts
 		});
 
-		const data = await handleResponse(res, 'Failed to search items');
-		return data.Items || [];
-	} catch (e) {
-		// @ts-expect-error: ignore status
+		const data = await handleResponse<{ Items: any[] }>(res, 'Failed to search items');
+		return data?.Items || [];
+	} catch (e: any) {
 		if (e?.status === 401) throw e;
 		console.error('searchItems error:', e);
 		return [];
@@ -481,12 +388,8 @@ export async function searchItems(userId, token, searchTerm, types = ['Series'])
 
 /**
  * Get Channel Details
- * @param {string} userId
- * @param {string} token
- * @param {string} channelId
- * @returns {Promise<JellyfinChannel|null>}
  */
-export async function getChannel(userId, token, channelId) {
+export async function getChannel(userId: string, token: string, channelId: string): Promise<JellyfinChannel | null> {
 	try {
 		const host = await getHost();
 		const opts = await getFetchOpts();
@@ -498,9 +401,8 @@ export async function getChannel(userId, token, channelId) {
 			...opts
 		});
 
-		return await handleResponse(res, 'Failed to fetch channel details');
-	} catch (e) {
-		// @ts-expect-error: ignore status
+		return await handleResponse<JellyfinChannel>(res, 'Failed to fetch channel details');
+	} catch (e: any) {
 		if (e?.status === 401) throw e;
 		console.error('getChannel error:', e);
 		return null;
@@ -509,14 +411,9 @@ export async function getChannel(userId, token, channelId) {
 
 /**
  * Schedule a recording
- * @param {string} token
- * @param {string} programId
- * @param {boolean} [isSeries=false]
- * @param {string} [userId='']
- * @returns {Promise<boolean|any>}
  * @throws {Error} If scheduling fails
  */
-export async function scheduleRecording(token, programId, isSeries = false, userId = '') {
+export async function scheduleRecording(token: string, programId: string, isSeries = false, userId = ''): Promise<any> {
 	try {
 		const endpoint = isSeries ? '/LiveTv/SeriesTimers' : '/LiveTv/Timers';
 		const host = await getHost();
@@ -532,7 +429,7 @@ export async function scheduleRecording(token, programId, isSeries = false, user
 		};
 
 		// Always try to fetch program details to populate ChannelId, etc.
-		let program = null;
+		let program: JellyfinProgram | null = null;
 		try {
 			if (userId) {
 				program = await getProgram(userId, token, programId);
@@ -549,7 +446,7 @@ export async function scheduleRecording(token, programId, isSeries = false, user
 		}
 
 		/** @type {any} */
-		let payload;
+		let payload: any;
 
 		if (isSeries) {
 			// Try to fetch default series timer payload from server
@@ -674,12 +571,9 @@ export async function scheduleRecording(token, programId, isSeries = false, user
 
 /**
  * Cancel a series timer
- * @param {string} token
- * @param {string} timerId
- * @returns {Promise<boolean>}
  * @throws {Error} If cancellation fails
  */
-export async function cancelSeriesTimer(token, timerId) {
+export async function cancelSeriesTimer(token: string, timerId: string): Promise<boolean> {
 	try {
 		const host = await getHost();
 		const opts = await getFetchOpts();
@@ -702,10 +596,8 @@ export async function cancelSeriesTimer(token, timerId) {
 
 /**
  * Get Timers (Scheduled Recordings)
- * @param {string} token
- * @returns {Promise<any[]>}
  */
-export async function getTimers(token) {
+export async function getTimers(token: string): Promise<any[]> {
 	try {
 		const host = await getHost();
 		const opts = await getFetchOpts();
@@ -722,10 +614,9 @@ export async function getTimers(token) {
 			...opts
 		});
 
-		const data = await handleResponse(res, 'Failed to fetch timers');
-		return data.Items || [];
-	} catch (e) {
-		// @ts-expect-error: ignore status
+		const data = await handleResponse<{ Items: any[] }>(res, 'Failed to fetch timers');
+		return data?.Items || [];
+	} catch (e: any) {
 		if (e?.status === 401) throw e;
 		console.error('getTimers error:', e);
 		return [];
@@ -734,10 +625,8 @@ export async function getTimers(token) {
 
 /**
  * Get Series Timers
- * @param {string} token
- * @returns {Promise<any[]>}
  */
-export async function getSeriesTimers(token) {
+export async function getSeriesTimers(token: string): Promise<any[]> {
 	try {
 		const host = await getHost();
 		const opts = await getFetchOpts();
@@ -749,10 +638,9 @@ export async function getSeriesTimers(token) {
 			...opts
 		});
 
-		const data = await handleResponse(res, 'Failed to fetch series timers');
-		return data.Items || [];
-	} catch (e) {
-		// @ts-expect-error: ignore status
+		const data = await handleResponse<{ Items: any[] }>(res, 'Failed to fetch series timers');
+		return data?.Items || [];
+	} catch (e: any) {
 		if (e?.status === 401) throw e;
 		console.error('getSeriesTimers error:', e);
 		return [];
@@ -761,12 +649,9 @@ export async function getSeriesTimers(token) {
 
 /**
  * Delete a recording
- * @param {string} token
- * @param {string} recordingId
- * @returns {Promise<boolean>}
  * @throws {Error} If deletion fails
  */
-export async function deleteRecording(token, recordingId) {
+export async function deleteRecording(token: string, recordingId: string): Promise<boolean> {
 	try {
 		const host = await getHost();
 		const opts = await getFetchOpts();
@@ -793,12 +678,9 @@ export async function deleteRecording(token, recordingId) {
 
 /**
  * Cancel a timer
- * @param {string} token
- * @param {string} timerId
- * @returns {Promise<boolean>}
  * @throws {Error} If cancellation fails
  */
-export async function cancelTimer(token, timerId) {
+export async function cancelTimer(token: string, timerId: string): Promise<boolean> {
 	try {
 		const host = await getHost();
 		const opts = await getFetchOpts();

@@ -1,9 +1,10 @@
 import { getTvMazeCache, setTvMazeCache } from '$lib/server/db';
+import type { TvMazeShow, TvMazeSearchResult } from '$lib/types';
 
 const BASE_URL = 'https://api.tvmaze.com';
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
-async function fetchFromTvMaze(endpoint, skipCache = false) {
+async function fetchFromTvMaze<T>(endpoint: string, skipCache = false): Promise<T | null> {
     const cached = skipCache ? null : await getTvMazeCache(endpoint);
 
     if (cached) {
@@ -12,7 +13,7 @@ async function fetchFromTvMaze(endpoint, skipCache = false) {
             try {
                 const data = cached.data;
                 if (data) {
-                    return data;
+                    return data as T;
                 }
                 console.warn('[TVMaze] Cached data is null/empty, refetching.');
             } catch (e) {
@@ -44,7 +45,7 @@ async function fetchFromTvMaze(endpoint, skipCache = false) {
              console.warn('[TVMaze] Fetched data is null/empty, not caching.');
         }
 
-        return data;
+        return data as T;
     } catch (error) {
         console.error(`[TVMaze] Failed to fetch: ${url}`, error);
         // If fetch fails but we have stale cache, return it?
@@ -55,7 +56,7 @@ async function fetchFromTvMaze(endpoint, skipCache = false) {
                 console.warn('Returning stale cache for TVMaze');
                 const staleData = cached.data;
                 if (staleData) {
-                    return staleData;
+                    return staleData as T;
                 }
             } catch (parseError) {
                  console.error('Error parsing stale cached TVMaze data', parseError);
@@ -65,13 +66,13 @@ async function fetchFromTvMaze(endpoint, skipCache = false) {
     }
 }
 
-export async function searchShows(query) {
+export async function searchShows(query: string): Promise<TvMazeSearchResult[]> {
     const cleanQuery = query.trim();
     const encodedQuery = encodeURIComponent(cleanQuery);
     const endpoint = `/search/shows?q=${encodedQuery}`;
-    let results = await fetchFromTvMaze(endpoint);
+    let results = await fetchFromTvMaze<TvMazeSearchResult[]>(endpoint);
 
-    let filtered = [];
+    let filtered: TvMazeSearchResult[] = [];
     if (Array.isArray(results)) {
         filtered = results.filter(r => r.show && typeof r.show.id === 'number');
     }
@@ -79,7 +80,7 @@ export async function searchShows(query) {
     // If cache returned results but they were all filtered out (invalid), try fresh
     if (Array.isArray(results) && results.length > 0 && filtered.length === 0) {
         console.warn(`[TVMaze] Cached results for "${query}" were invalid. Fetching fresh...`);
-        results = await fetchFromTvMaze(endpoint, true);
+        results = await fetchFromTvMaze<TvMazeSearchResult[]>(endpoint, true);
         if (Array.isArray(results)) {
             filtered = results.filter(r => r.show && typeof r.show.id === 'number');
         }
@@ -88,8 +89,8 @@ export async function searchShows(query) {
     return filtered;
 }
 
-export async function getShow(id) {
-    const show = await fetchFromTvMaze(`/shows/${id}?embed=episodes`);
+export async function getShow(id: number | string): Promise<TvMazeShow | null> {
+    const show = await fetchFromTvMaze<TvMazeShow>(`/shows/${id}?embed=episodes`);
     
     if (show && show.name && typeof show.id === 'number') {
         try {
@@ -97,7 +98,7 @@ export async function getShow(id) {
             // This helps the Dashboard find the image without hitting the search API
             // if the user has already visited the series page.
             const searchKey = `/search/shows?q=${encodeURIComponent(show.name)}`;
-            const searchResult = [{
+            const searchResult: TvMazeSearchResult[] = [{
                 score: 10,
                 show: {
                     id: show.id,
@@ -120,13 +121,13 @@ export async function getShow(id) {
     return show;
 }
 
-export async function manualCacheSearch(query, show) {
+export async function manualCacheSearch(query: string, show: TvMazeShow): Promise<void> {
     if (!query || !show || typeof show.id !== 'number') return;
     
     try {
         const cleanQuery = query.trim();
         const searchKey = `/search/shows?q=${encodeURIComponent(cleanQuery)}`;
-        const searchResult = [{
+        const searchResult: TvMazeSearchResult[] = [{
             score: 10,
             show: {
                 id: show.id,

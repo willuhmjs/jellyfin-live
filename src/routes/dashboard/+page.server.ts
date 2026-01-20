@@ -3,8 +3,12 @@ import * as jellyfin from '$lib/server/jellyfin';
 import * as tvmaze from '$lib/server/tvmaze';
 import * as db from '$lib/server/db';
 import { cleanName } from '$lib/server/normalization';
+import type { PageServerLoad, Actions } from './$types';
 
-export async function load({ cookies, locals }) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyObject = any;
+
+export const load: PageServerLoad = async ({ cookies, locals }) => {
     const sessionId = locals.user?.token;
     const userId = locals.user?.user?.Id;
     const showWelcomeBanner = cookies.get('dashboard_welcome_dismissed') !== 'true';
@@ -25,24 +29,24 @@ export async function load({ cookies, locals }) {
         ]);
 
         // Filter for premieres
-        const premieres = programs.filter(p => p.IsPremiere);
+        const premieres = programs.filter((p: AnyObject) => p.IsPremiere);
 
         // Enrich timers with missing EpisodeTitle or SeriesName (if it looks like a series)
-        const timersToEnrich = (timers || []).filter(t => (!t.EpisodeTitle || !t.SeriesName || !t.SeriesId) && t.ProgramId);
+        const timersToEnrich = (timers || []).filter((t: AnyObject) => (!t.EpisodeTitle || !t.SeriesName || !t.SeriesId) && t.ProgramId);
         if (timersToEnrich.length > 0) {
-            const programIds = [...new Set(timersToEnrich.map(t => t.ProgramId))];
+            const programIds = [...new Set(timersToEnrich.map((t: AnyObject) => t.ProgramId))];
             try {
                 // Fetch program details concurrently
                 const results = await Promise.allSettled(
-                    programIds.map(id => jellyfin.getProgram(userId, sessionId, id))
+                    programIds.map((id: unknown) => jellyfin.getProgram(userId, sessionId, id as string))
                 );
 
-                results.forEach(result => {
+                results.forEach((result: PromiseSettledResult<AnyObject>) => {
                     if (result.status === 'fulfilled' && result.value) {
                         const item = result.value;
-                        const matchingTimers = timers.filter(t => t.ProgramId === item.Id);
+                        const matchingTimers = timers.filter((t: AnyObject) => t.ProgramId === item.Id);
 
-                        matchingTimers.forEach(timer => {
+                        matchingTimers.forEach((timer: AnyObject) => {
                             timer.EpisodeTitle = item.EpisodeTitle || item.Name;
 
                             if (timer.Name === timer.SeriesName && item.Name && item.Name !== timer.SeriesName) {
@@ -64,12 +68,12 @@ export async function load({ cookies, locals }) {
         }
 
         // Process timers for Scheduled Recordings list
-        const scheduledRecordings = (timers || []).sort((a, b) => {
+        const scheduledRecordings = (timers || []).sort((a: AnyObject, b: AnyObject) => {
             return new Date(a.StartDate).getTime() - new Date(b.StartDate).getTime();
         });
 
         // Group timers by Series/Movie (Scheduled) for My Library identification
-        const timerGroups = {};
+        const timerGroups: Record<string, AnyObject> = {};
         for (const timer of (timers || [])) {
             const groupId = timer.SeriesId || timer.Name;
             const isMovie = !timer.SeriesId;
@@ -125,13 +129,13 @@ export async function load({ cookies, locals }) {
             }
         }
 
-        const monitoredSeries = Array.from(monitoredSeriesMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+        const monitoredSeries = Array.from(monitoredSeriesMap.values()).sort((a: AnyObject, b: AnyObject) => a.name.localeCompare(b.name));
 
         // --- UPDATED LOGIC START ---
         // Enrich with TVMaze images (Series Only)
         console.log('[Dashboard] Starting parallel TVMaze image fetch...');
         
-        const seriesPromises = monitoredSeries.map(async (series) => {
+        const seriesPromises = monitoredSeries.map(async (series: AnyObject) => {
             const cachedImage = await db.getSeriesImage(series.name);
             // console.log(`[Dashboard] Cached image for ${series.name}: ${cachedImage}`);
             if (cachedImage) {
@@ -149,7 +153,7 @@ export async function load({ cookies, locals }) {
                 // Search TVMaze for the show (cached)
                 const results = await tvmaze.searchShows(series.name);
                 // Find exact match or fallback to first result
-                const match = results.find(r => cleanName(r.show.name) === cleanName(series.name)) || results[0];
+                const match = results.find((r: AnyObject) => cleanName(r.show.name) === cleanName(series.name)) || results[0];
 
                 if (match && match.show.image) {
                     return {
@@ -159,9 +163,10 @@ export async function load({ cookies, locals }) {
                 } else {
                     return series;
                 }
-            } catch (e) {
+            } catch (e: unknown) {
                 // Silently fail and fallback to Jellyfin image
-                console.warn(`Failed to fetch TVMaze image for ${series.name}:`, e.message);
+                const err = e as AnyObject;
+                console.warn(`Failed to fetch TVMaze image for ${series.name}:`, err.message);
                 return series;
             }
         });
@@ -178,11 +183,11 @@ export async function load({ cookies, locals }) {
             showWelcomeBanner,
             token: sessionId
         };
-    } catch (e) {
-    	// @ts-ignore
-    	if (e.status === 401 || (e.message && e.message.includes('401'))) {
-    		throw redirect(303, '/login');
-    	}
+    } catch (e: unknown) {
+        const err = e as AnyObject;
+     if (err.status === 401 || (err.message && err.message.includes('401'))) {
+      throw redirect(303, '/login');
+     }
     	console.error('Error fetching dashboard data:', e);
     	return {
             scheduledRecordings: [],
@@ -195,7 +200,7 @@ export async function load({ cookies, locals }) {
     }
 }
 
-export const actions = {
+export const actions: Actions = {
     search: async ({ request }) => {
         const data = await request.formData();
         const query = data.get('query');
@@ -205,7 +210,7 @@ export const actions = {
         }
 
         try {
-            const results = await tvmaze.searchShows(query);
+            const results = await tvmaze.searchShows(query as string);
             return { results, query };
         } catch (e) {
             console.error('Search failed:', e);

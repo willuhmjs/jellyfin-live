@@ -1,10 +1,14 @@
 import { redirect } from '@sveltejs/kit';
 import * as jellyfin from '$lib/server/jellyfin';
 import { getCached, clearCache } from '$lib/server/cache';
+import type { PageServerLoad, Actions } from './$types';
 
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyObject = any;
 
-export async function load({ locals }) {
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export const load: PageServerLoad = async ({ locals }) => {
 	const sessionId = locals.user?.token;
 	const userId = locals.user?.user?.Id;
 
@@ -46,12 +50,12 @@ export async function load({ locals }) {
 			)
 		]);
 
-		let programs = fetchedPrograms;
+		let programs = fetchedPrograms as AnyObject[];
 
 		// Inject future recordings that might be outside the fetched guide window
 		// This allows the user to see future scheduled recordings in the grid
 		const existingProgramIds = new Set(programs.map((p) => p.Id));
-		const futurePrograms = timers
+		const futurePrograms = (timers as AnyObject[])
 			.filter((t) => t.ProgramId && !existingProgramIds.has(t.ProgramId) && t.ChannelId)
 			.map((t) => ({
 				Id: t.ProgramId,
@@ -81,7 +85,7 @@ export async function load({ locals }) {
 			console.log('No programs found');
 		}
 
-		if (seriesTimers.length > 0) {
+		if ((seriesTimers as AnyObject[]).length > 0) {
 			console.log('Sample Series Timer:', JSON.stringify(seriesTimers[0], null, 2));
 		} else {
 			console.log('No series timers found');
@@ -98,17 +102,17 @@ export async function load({ locals }) {
 		});
 
 		const timersByProgramId = new Map();
-		timers.forEach((t) => {
+		(timers as AnyObject[]).forEach((t) => {
 			if (t.ProgramId) timersByProgramId.set(t.ProgramId, t);
 		});
 
 		const seriesTimersBySeriesId = new Map();
 		const seriesTimersByName = new Map(); // For fallback
 
-		seriesTimers.forEach((st) => {
+		(seriesTimers as AnyObject[]).forEach((st) => {
 			if (st.SeriesId) seriesTimersBySeriesId.set(st.SeriesId, st);
 			// Helper for name matching
-			const cleanName = (n) => (n ? n.toLowerCase().replace(/[^a-z0-9]/g, '') : '');
+			const cleanName = (n: string) => (n ? n.toLowerCase().replace(/[^a-z0-9]/g, '') : '');
 			const nameKey = cleanName(st.SeriesName || st.Name);
 			if (nameKey) seriesTimersByName.set(nameKey, st);
 		});
@@ -116,13 +120,13 @@ export async function load({ locals }) {
 		let maxProgramDate = 0;
 
 		// Map programs to channels
-		const channelsWithPrograms = channels.map((channel) => {
+		const channelsWithPrograms = (channels as AnyObject[]).map((channel) => {
 			const rawPrograms = programsByChannel.get(channel.Id) || [];
 
 			const channelPrograms = rawPrograms
 				// Optimize sort: String comparison for ISO dates is faster and correct
-				.sort((a, b) => (a.StartDate < b.StartDate ? -1 : a.StartDate > b.StartDate ? 1 : 0))
-				.map((p) => {
+				.sort((a: AnyObject, b: AnyObject) => (a.StartDate < b.StartDate ? -1 : a.StartDate > b.StartDate ? 1 : 0))
+				.map((p: AnyObject) => {
 					// Track max date for frontend optimization
 					if (p.EndDate) {
 						const end = new Date(p.EndDate).getTime();
@@ -142,7 +146,7 @@ export async function load({ locals }) {
 
 					// 2. Fallback Match by Name
 					if (!seriesTimer && p.SeriesName) {
-						const cleanName = (n) => (n ? n.toLowerCase().replace(/[^a-z0-9]/g, '') : '');
+						const cleanName = (n: string) => (n ? n.toLowerCase().replace(/[^a-z0-9]/g, '') : '');
 						const targetName = cleanName(p.SeriesName);
 						seriesTimer = seriesTimersByName.get(targetName);
 					}
@@ -168,9 +172,10 @@ export async function load({ locals }) {
 			JELLYFIN_HOST: await jellyfin.getHost(),
 			token: sessionId
 		};
-	} catch (e) {
-		console.error('Error fetching guide data:', e);
-		if (e.status === 401 || (e.message && e.message.includes('401'))) {
+	} catch (e: unknown) {
+        const err = e as AnyObject;
+		console.error('Error fetching guide data:', err);
+		if (err.status === 401 || (err.message && err.message.includes('401'))) {
 			throw redirect(303, '/login');
 		}
 		return {
@@ -180,8 +185,7 @@ export async function load({ locals }) {
 	}
 }
 
-/** @type {import('./$types').Actions} */
-export const actions = {
+export const actions: Actions = {
 	record: async ({ cookies, request }) => {
 		const token = cookies.get('session_id');
 		const userId = cookies.get('user_id');
