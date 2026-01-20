@@ -1,5 +1,5 @@
 <script>
-	import { createEventDispatcher, onMount } from 'svelte';
+	import { createEventDispatcher, onMount, onDestroy } from 'svelte';
 	import VirtualList from 'svelte-virtual-list';
 
 	export let channels = [];
@@ -13,14 +13,16 @@
 	let headerEl;
 	let gridContainer;
 	let now = new Date();
+	let scrollX = 0;
+	let viewportWidth = 0;
+	let resizeObserver;
 
 	// Reactive computations for grid dimensions
 	$: allPrograms = channels.flatMap((c) => c.programs || []);
 
 	// Determine grid start/end based on available programs or fallback to now
-	// User Request: "start the graph / cut it off at the current time"
-	// So we ignore past programs for the start time calculation.
-	$: gridStartTime = new Date(Math.floor(now.getTime() / (30 * 60 * 1000)) * 30 * 60 * 1000 - 30 * 60 * 1000);
+	// User Request: "enable the user to scroll left up to 3 hours"
+	$: gridStartTime = new Date(Math.floor(now.getTime() / (30 * 60 * 1000)) * 30 * 60 * 1000 - 3 * 60 * 60 * 1000);
 
 	$: maxDate =
 		allPrograms.length > 0
@@ -110,26 +112,90 @@
 		dispatch('select', program);
 	}
 
+	function isLive(program) {
+		if (!program.StartDate || !program.EndDate) return false;
+		const start = new Date(program.StartDate);
+		const end = new Date(program.EndDate);
+		const current = new Date();
+		return current >= start && current < end;
+	}
+
+	function isTextRightAligned(program, currentScrollX) {
+		if (!program) return false;
+		const left = getProgramLeft(program);
+		const width = getProgramWidth(program);
+		const right = left + width;
+
+		// Check intersection with viewport
+		const visibleLeft = Math.max(left, currentScrollX);
+		const visibleRight = Math.min(right, currentScrollX + viewportWidth);
+
+		if (visibleLeft >= visibleRight) return false; // Not visible
+
+		const visibleCenter = (visibleLeft + visibleRight) / 2;
+		const cardCenter = (left + right) / 2;
+
+		return visibleCenter > cardCenter;
+	}
+
 	onMount(() => {
-		// Sync horizontal scroll from virtual list to header
-		// Try multiple selectors as svelte-virtual-list structure varies
-		const viewport =
-			gridContainer?.querySelector('svelte-virtual-list-viewport') || // Custom element
-			gridContainer?.querySelector('.svelte-virtual-list-viewport') || // Class
-			gridContainer?.querySelector('.viewport') || // Common class
-			gridContainer?.firstElementChild; // Fallback to root element
+		// Allow DOM to settle
+		setTimeout(() => {
+			// Sync horizontal scroll from virtual list to header
+			// Try multiple selectors as svelte-virtual-list structure varies
+			const viewport =
+				gridContainer?.querySelector('svelte-virtual-list-viewport') || // Custom element
+				gridContainer?.querySelector('.svelte-virtual-list-viewport') || // Class
+				gridContainer?.querySelector('.viewport') || // Common class
+				gridContainer?.firstElementChild; // Fallback to root element
 
-		if (viewport) {
-			console.log('[GuideGrid] Found viewport for scroll sync');
-			viewport.addEventListener('scroll', () => {
-				if (headerEl) {
-					headerEl.scrollLeft = viewport.scrollLeft;
+			if (viewport) {
+				console.log('[GuideGrid] Found viewport for scroll sync');
+
+				// Initialize viewport width
+				viewportWidth = viewport.clientWidth;
+				resizeObserver = new ResizeObserver((entries) => {
+					for (const entry of entries) {
+						viewportWidth = entry.contentRect.width;
+					}
+				});
+				resizeObserver.observe(viewport);
+
+				viewport.addEventListener('scroll', () => {
+					scrollX = viewport.scrollLeft;
+					if (headerEl) {
+						headerEl.scrollLeft = viewport.scrollLeft;
+					}
+				});
+
+				// Scroll to "Now"
+				// gridStartTime is 3 hours ago (roughly)
+				// Calculate offset for current time
+				const diffMs = new Date() - gridStartTime;
+				if (diffMs > 0) {
+					const diffMinutes = diffMs / 1000 / 60;
+					const startPixels = diffMinutes * PIXELS_PER_MINUTE;
+					
+					// Force scroll
+					viewport.scrollLeft = startPixels;
+					scrollX = startPixels;
+					
+					// Also sync header immediately
+					if (headerEl) {
+						headerEl.scrollLeft = startPixels;
+					}
+				} else {
+					viewport.scrollLeft = 0;
+					scrollX = 0;
 				}
-			});
+			} else {
+				console.warn('[GuideGrid] Could not find viewport element');
+			}
+		}, 100);
+	});
 
-			// Ensure we start at the beginning (current time)
-			viewport.scrollLeft = 0;
-		}
+	onDestroy(() => {
+		if (resizeObserver) resizeObserver.disconnect();
 	});
 </script>
 
@@ -195,7 +261,7 @@
 								class="absolute top-1 bottom-1 flex flex-col justify-center overflow-hidden rounded border border-gray-700 bg-gray-800 p-1 text-xs hover:bg-blue-900/40 cursor-pointer transition-colors z-10"
 								class:border-red-500={program.isRecording || program.isSeriesRecording}
 								class:border-2={program.isRecording || program.isSeriesRecording}
-								class:text-right={getProgramLeft(program) < 0}
+								class:text-right={isTextRightAligned(program, scrollX)}
 								style="width: {getProgramWidth(program) - 4}px; left: {getProgramLeft(program)}px;"
 								on:click={() => handleProgramClick(program)}
 								role="button"
@@ -218,6 +284,15 @@
 								<div class="truncate text-gray-500 w-full">
 									{formatTime(program.StartDate)} - {formatTime(program.EndDate)}
 								</div>
+
+								{#if isLive(program)}
+									<div
+										class="absolute right-1 bottom-1 z-20 rounded bg-red-600 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-sm tracking-wider"
+										title="Currently Live"
+									>
+										LIVE
+									</div>
+								{/if}
 							</div>
 						{/each}
 						{#if !item.programs || item.programs.length === 0}
@@ -243,5 +318,7 @@
 	:global(.viewport) {
 		overflow-x: auto !important;
 		overflow-y: auto !important;
+		width: 100% !important;
+		height: 100% !important;
 	}
 </style>
