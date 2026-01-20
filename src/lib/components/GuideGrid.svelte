@@ -232,10 +232,23 @@
 
 					{#each timeSlots as slot, i}
 						<div
-							class="absolute top-0 bottom-0 flex items-center border-l border-gray-800 pl-2 whitespace-nowrap overflow-hidden text-gray-400"
+							class="absolute top-0 bottom-0 flex items-center justify-between border-l border-gray-800 pl-2 pr-2 whitespace-nowrap overflow-hidden transition-colors duration-300"
+							class:text-gray-400={slot.getTime() !== currentSlotStart.getTime()}
+							class:text-white={slot.getTime() === currentSlotStart.getTime()}
+							class:font-bold={slot.getTime() === currentSlotStart.getTime()}
 							style="width: {30 * PIXELS_PER_MINUTE}px; left: {i * 30 * PIXELS_PER_MINUTE}px;"
 						>
 							{formatTime(slot)}
+							{#if slot.getTime() === currentSlotStart.getTime()}
+								<div class="flex items-center justify-center">
+									<span class="relative flex h-2.5 w-2.5">
+										<span
+											class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"
+										></span>
+										<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600"></span>
+									</span>
+								</div>
+							{/if}
 						</div>
 					{/each}
 				</div>
