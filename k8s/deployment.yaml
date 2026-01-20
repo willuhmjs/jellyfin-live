@@ -110,7 +110,13 @@ kind: Ingress
 metadata:
   name: jellyfin-live-ingress
   namespace: tv
+  annotations:
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 spec:
+  tls:
+    - hosts:
+        - live.will.net
+      secretName: jellyfin-live-tls
   rules:
     - host: live.will.net
       http:
