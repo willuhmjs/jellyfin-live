@@ -15,10 +15,36 @@ export async function load({ cookies }) {
 		const channels = await jellyfin.getChannels(userId, sessionId);
 		// Fetch programs. 5000 limit to ensure we cover enough time for all channels.
 		// API returns programs sorted by StartDate.
-		const programs = await jellyfin.getPrograms(userId, sessionId, 5000);
+		let programs = await jellyfin.getPrograms(userId, sessionId, 5000);
 
 		// Fetch active timers (recordings) and series timers
 		const timers = await jellyfin.getTimers(sessionId);
+
+		// Inject future recordings that might be outside the fetched guide window
+		// This allows the user to see future scheduled recordings in the grid
+		const existingProgramIds = new Set(programs.map((p) => p.Id));
+		const futurePrograms = timers
+			.filter((t) => t.ProgramId && !existingProgramIds.has(t.ProgramId) && t.ChannelId)
+			.map((t) => ({
+				Id: t.ProgramId,
+				ChannelId: t.ChannelId,
+				Name: t.Name,
+				SeriesName: t.SeriesName,
+				EpisodeTitle: t.EpisodeTitle,
+				StartDate: t.StartDate,
+				EndDate: t.EndDate,
+				Overview: t.Overview,
+				SeriesId: t.SeriesId,
+				SeasonId: t.SeasonId,
+				ParentIndexNumber: t.ParentIndexNumber,
+				IndexNumber: t.IndexNumber
+			}));
+
+		if (futurePrograms.length > 0) {
+			console.log(`Injecting ${futurePrograms.length} future programs from timers`);
+			programs = [...programs, ...futurePrograms];
+		}
+
 		const seriesTimers = await jellyfin.getSeriesTimers(sessionId);
 
 		console.log('--- DEBUG MATCHING ---');

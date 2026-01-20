@@ -654,7 +654,7 @@ export async function getTimers(token) {
 		const opts = await getFetchOpts();
 		const params = new URLSearchParams({
 			Fields:
-				'SeriesId,ProgramId,EpisodeTitle,Name,Overview,SeasonId,ParentIndexNumber,IndexNumber,StartDate,EndDate,ChannelName,Status,SeriesPrimaryImageTag,SeriesName,PremiereDate,ImageTags'
+				'SeriesId,ProgramId,EpisodeTitle,Name,Overview,SeasonId,ParentIndexNumber,IndexNumber,StartDate,EndDate,ChannelName,Status,SeriesPrimaryImageTag,SeriesName,PremiereDate,ImageTags,ChannelId'
 		});
 
 		const res = await fetch(`${host}/LiveTv/Timers?${params.toString()}`, {

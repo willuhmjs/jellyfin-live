@@ -194,7 +194,14 @@
 										title={program.isSeriesRecording ? 'Series Recording' : 'Recording'}
 									></div>
 								{/if}
-								<div class="truncate font-semibold text-gray-200 w-full">{program.Name || 'Unknown Program'}</div>
+								<div class="truncate font-semibold text-gray-200 w-full" title={program.Name}>
+									{program.Name || 'Unknown Program'}
+								</div>
+								{#if program.EpisodeTitle && program.EpisodeTitle !== program.Name}
+									<div class="truncate text-gray-400 w-full" title={program.EpisodeTitle}>
+										{program.EpisodeTitle}
+									</div>
+								{/if}
 								<div class="truncate text-gray-500 w-full">
 									{formatTime(program.StartDate)} - {formatTime(program.EndDate)}
 								</div>
