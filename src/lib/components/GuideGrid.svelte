@@ -322,7 +322,8 @@
 		height: 100% !important;
 	}
 
-	:global(svelte-virtual-list-contents) {
+	:global(svelte-virtual-list-contents),
+	:global(.svelte-virtual-list-contents) {
 		width: fit-content;
 		min-width: 100%;
 	}
