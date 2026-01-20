@@ -4,9 +4,9 @@ import * as tvmaze from '$lib/server/tvmaze';
 import * as db from '$lib/server/db';
 import { cleanName } from '$lib/server/normalization';
 
-export async function load({ cookies }) {
-    const sessionId = cookies.get('session_id');
-    const userId = cookies.get('user_id');
+export async function load({ cookies, locals }) {
+    const sessionId = locals.user?.token;
+    const userId = locals.user?.user?.Id;
     const showWelcomeBanner = cookies.get('dashboard_welcome_dismissed') !== 'true';
 
     if (!sessionId || !userId) {

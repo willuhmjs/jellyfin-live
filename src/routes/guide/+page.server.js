@@ -3,9 +3,9 @@ import * as jellyfin from '$lib/server/jellyfin';
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export async function load({ cookies }) {
-	const sessionId = cookies.get('session_id');
-	const userId = cookies.get('user_id');
+export async function load({ locals }) {
+	const sessionId = locals.user?.token;
+	const userId = locals.user?.user?.Id;
 
 	if (!sessionId || !userId) {
 		throw redirect(303, '/login');

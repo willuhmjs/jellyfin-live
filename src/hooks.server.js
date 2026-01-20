@@ -39,5 +39,10 @@ export async function handle({ event, resolve }) {
         };
     }
 
+    // Protect all routes except login and onboarding
+    if (!event.locals.user && !url.startsWith('/login') && !url.startsWith('/onboarding')) {
+        throw redirect(303, '/login');
+    }
+
     return resolve(event);
 }
