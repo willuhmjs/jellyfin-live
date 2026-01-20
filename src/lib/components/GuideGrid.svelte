@@ -183,14 +183,16 @@
 				if (diffMs > 0) {
 					const diffMinutes = diffMs / 1000 / 60;
 					const startPixels = diffMinutes * PIXELS_PER_MINUTE;
+					// Subtract buffer to show context (e.g. 30 mins = 120px)
+					const scrollTarget = Math.max(0, startPixels - 120);
 					
 					// Force scroll
-					viewport.scrollLeft = startPixels;
-					scrollX = startPixels;
+					viewport.scrollLeft = scrollTarget;
+					scrollX = scrollTarget;
 					
 					// Also sync header immediately
 					if (headerEl) {
-						headerEl.scrollLeft = startPixels;
+						headerEl.scrollLeft = scrollTarget;
 					}
 				} else {
 					viewport.scrollLeft = 0;
@@ -218,7 +220,7 @@
 			<div class="relative flex h-full" style="min-width: {totalWidth + CHANNEL_COLUMN_WIDTH}px;">
 				<!-- Corner Spacer (Sticky Left) -->
 				<div
-					class="w-24 shrink-0 border-r border-gray-800 bg-gray-900"
+					class="sticky left-0 z-20 w-24 shrink-0 border-r border-gray-800 bg-gray-900"
 				></div>
 				<!-- Time Slots -->
 				<div class="relative flex-1 h-full">
@@ -338,6 +340,10 @@
 	:global(.svelte-virtual-list-contents) {
 		width: fit-content;
 		min-width: 100%;
+	}
+
+	:global(svelte-virtual-list-row) {
+		overflow: visible !important;
 	}
 
 	@keyframes alarm-flash {
