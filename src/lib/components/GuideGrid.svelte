@@ -321,4 +321,9 @@
 		width: 100% !important;
 		height: 100% !important;
 	}
+
+	:global(svelte-virtual-list-contents) {
+		width: fit-content;
+		min-width: 100%;
+	}
 </style>
