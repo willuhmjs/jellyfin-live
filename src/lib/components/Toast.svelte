@@ -17,7 +17,7 @@
         >
             <div class="flex-1 text-sm font-medium">{t.message}</div>
             <button
-                class="ml-2 text-white/80 hover:text-white"
+                class="ml-2 text-white/80 hover:text-white cursor-pointer"
                 on:click={() => toast.remove(t.id)}
             >
                 ✕

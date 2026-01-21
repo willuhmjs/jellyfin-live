@@ -80,7 +80,7 @@
                                 <input type="hidden" name="seriesTimerId" value={data.seriesTimerId} />
                                 <button
                                     disabled={processing}
-                                    class="px-4 py-2 bg-red-900/50 hover:bg-red-900/80 text-red-200 border border-red-800 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    class="px-4 py-2 bg-red-900/50 hover:bg-red-900/80 text-red-200 border border-red-800 rounded-lg flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {#if processing}
                                         <span class="animate-spin h-4 w-4 border-2 border-red-200 border-t-transparent rounded-full"></span>
@@ -108,7 +108,7 @@
                                 <input type="hidden" name="seriesName" value={show.name} />
                                 <button 
                                     disabled={processing}
-                                    class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {#if processing}
                                         <span class="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
@@ -214,7 +214,7 @@
                                 </div>
                                 <form method="POST" action="?/cancelRecording" use:enhance={() => async ({ update }) => { await update(); }} class="flex-shrink-0">
                                     <input type="hidden" name="timerId" value={timer.Id} />
-                                    <button class="px-3 py-1 bg-red-900/30 hover:bg-red-900/50 text-red-400 rounded-full text-xs font-medium border border-red-900/50 flex items-center gap-1 transition-colors">
+                                    <button class="px-3 py-1 bg-red-900/30 hover:bg-red-900/50 text-red-400 rounded-full text-xs font-medium border border-red-900/50 flex items-center gap-1 transition-colors cursor-pointer">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 9a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 00-1-1H8z" clip-rule="evenodd" />
                                         </svg>
@@ -239,7 +239,7 @@
                 {@const hasRecording = episodes.some(e => e.isRecording)}
                 <div class="bg-gray-900/50 rounded-xl overflow-hidden border border-gray-800">
                     <button
-                        class="w-full px-6 py-4 bg-gray-800/50 flex justify-between items-center hover:bg-gray-800 transition-colors text-left"
+                        class="w-full px-6 py-4 bg-gray-800/50 flex justify-between items-center hover:bg-gray-800 transition-colors text-left cursor-pointer"
                         class:border-b={expandedSeasons[seasonNum]}
                         class:border-gray-800={expandedSeasons[seasonNum]}
                         onclick={() => toggleSeason(seasonNum)}
@@ -319,7 +319,7 @@
                                         {:else if ep.isRecording}
                                             <form method="POST" action="?/cancelRecording" use:enhance={() => async ({ update }) => { await update(); }}>
                                                 <input type="hidden" name="timerId" value={ep.timerId} />
-                                                <button class="px-3 py-1 bg-red-900/30 hover:bg-red-900/50 text-red-400 rounded-full text-xs font-medium border border-red-900/50 flex items-center gap-1 transition-colors">
+                                                <button class="px-3 py-1 bg-red-900/30 hover:bg-red-900/50 text-red-400 rounded-full text-xs font-medium border border-red-900/50 flex items-center gap-1 transition-colors cursor-pointer">
                                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                                                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 9a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1v-4a1 1 0 00-1-1H8z" clip-rule="evenodd" />
                                                     </svg>
@@ -329,7 +329,7 @@
                                         {:else if ep.guideProgramId}
                                              <form method="POST" action="?/recordEpisode" use:enhance={() => async ({ update }) => { await update(); }}>
                                                 <input type="hidden" name="programId" value={ep.guideProgramId} />
-                                                <button class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-full text-xs font-medium transition-colors flex items-center gap-1">
+                                                <button class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-full text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer">
                                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                                                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 9a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1v-4a1 1 0 00-1-1H8z" clip-rule="evenodd" />
                                                     </svg>

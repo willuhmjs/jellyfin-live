@@ -99,7 +99,7 @@
         <section in:fly={{ y: 20, duration: 500 }} class="space-y-6">
              <div class="flex items-center justify-between">
                  <h2 class="text-2xl font-bold text-white tracking-tight">Search Results</h2>
-                 <button class="text-sm text-gray-400 hover:text-white transition-colors" onclick={() => form.results = []}>Clear</button>
+                 <button class="text-sm text-gray-400 hover:text-white transition-colors cursor-pointer" onclick={() => form.results = []}>Clear</button>
              </div>
              {#if form.results && form.results.length > 0}
                 <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
@@ -143,7 +143,7 @@
                         await update();
                     };
                 }}>
-                    <button aria-label="Dismiss Welcome Banner" class="p-2 text-gray-400 hover:text-white bg-black/20 hover:bg-black/40 rounded-full backdrop-blur-sm transition-all duration-200">
+                    <button aria-label="Dismiss Welcome Banner" class="p-2 text-gray-400 hover:text-white bg-black/20 hover:bg-black/40 rounded-full backdrop-blur-sm transition-all duration-200 cursor-pointer">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
                         </svg>
@@ -203,7 +203,7 @@
                 <div class="flex overflow-x-auto gap-4 pb-4 snap-x scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent -mx-6 px-6 md:mx-0 md:px-0">
                     {#each data.onAir as prog}
                         <button
-                            class="flex-shrink-0 w-[280px] bg-card hover:bg-card-hover border border-white/5 rounded-2xl p-3 flex flex-col gap-3 transition-all duration-300 hover:shadow-lg hover:shadow-black/20 group relative snap-start text-left"
+                            class="flex-shrink-0 w-[280px] bg-card hover:bg-card-hover border border-white/5 rounded-2xl p-3 flex flex-col gap-3 transition-all duration-300 hover:shadow-lg hover:shadow-black/20 group relative snap-start text-left cursor-pointer"
                             onclick={() => handleSelect(prog)}
                         >
                             <!-- Image -->

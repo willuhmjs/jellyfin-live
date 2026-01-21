@@ -47,7 +47,7 @@
              <div class="flex bg-white/5 p-1 rounded-lg border border-white/5 gap-1">
                 {#each ['all', 'Scheduled', 'Recorded'] as f}
                     <button
-                        class="px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap {filter === f ? 'bg-accent text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}"
+                        class="px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap cursor-pointer {filter === f ? 'bg-accent text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}"
                         onclick={() => filter = f}
                     >
                         {f === 'all' ? 'All' : f}

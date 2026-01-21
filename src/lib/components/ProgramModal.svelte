@@ -119,7 +119,7 @@
                         </div>
                     </div>
                     
-                    <button onclick={close} class="text-gray-400 hover:text-white mb-2 p-2 bg-black/40 rounded-full backdrop-blur-md" aria-label="Close">
+                    <button onclick={close} class="text-gray-400 hover:text-white mb-2 p-2 bg-black/40 rounded-full backdrop-blur-md cursor-pointer" aria-label="Close">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                         </svg>
@@ -201,7 +201,7 @@
                             <input type="hidden" name="timerId" value={program.timerId} />
                             <button
                                 type="submit"
-                                class="w-full rounded bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 flex items-center justify-center gap-2"
+                                class="w-full rounded bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 flex items-center justify-center gap-2 cursor-pointer"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
@@ -214,7 +214,7 @@
                             <input type="hidden" name="programId" value={program.Id} />
                             <button
                                 type="submit"
-                                class="w-full rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-center gap-2"
+                                class="w-full rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-center gap-2 cursor-pointer"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM10 2a8 8 0 100 16 8 8 0 000-16z" clip-rule="evenodd" />
@@ -231,7 +231,7 @@
                                 <input type="hidden" name="seriesTimerId" value={program.seriesTimerId} />
                                 <button
                                     type="submit"
-                                    class="w-full rounded bg-red-800 px-4 py-2 font-medium text-white hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-500 flex items-center justify-center gap-2"
+                                    class="w-full rounded bg-red-800 px-4 py-2 font-medium text-white hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-500 flex items-center justify-center gap-2 cursor-pointer"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
@@ -244,7 +244,7 @@
                                 <input type="hidden" name="programId" value={program.Id} />
                                 <button
                                     type="submit"
-                                    class="w-full rounded bg-purple-600 px-4 py-2 font-medium text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 flex items-center justify-center gap-2"
+                                    class="w-full rounded bg-purple-600 px-4 py-2 font-medium text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 flex items-center justify-center gap-2 cursor-pointer"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd" />
