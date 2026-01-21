@@ -1,4 +1,6 @@
-import { getSetting } from './db';
+import { getSetting, saveSeriesImage } from './db';
+import * as tvmaze from './tvmaze';
+import { cleanName } from './normalization';
 import { Agent } from 'undici';
 import type {
 	JellyfinUser,
@@ -612,7 +614,31 @@ export async function scheduleRecording(
 			...opts
 		});
 
-		return await handleResponse(res, 'Failed to schedule recording');
+		const result = await handleResponse(res, 'Failed to schedule recording');
+
+		// Pre-cache image for the dashboard
+		try {
+			const targetName = program?.SeriesName || program?.Name || (payload && payload.Name);
+			if (targetName) {
+				console.log(`[Recording] Pre-caching image for: ${targetName}`);
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				const results: any[] = await tvmaze.searchShows(targetName);
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				const match = results.find((r: any) => cleanName(r.show.name) === cleanName(targetName)) || results[0];
+
+				if (match && match.show.image) {
+					const imageUrl = match.show.image.original || match.show.image.medium;
+					if (imageUrl) {
+						await saveSeriesImage(targetName, imageUrl);
+						console.log(`[Recording] Cached image for ${targetName}`);
+					}
+				}
+			}
+		} catch (imgError) {
+			console.warn('[Recording] Failed to pre-cache image', imgError);
+		}
+
+		return result;
 	} catch (e: unknown) {
 		console.error('scheduleRecording error:', e);
 		throw e;
