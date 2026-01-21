@@ -416,7 +416,14 @@
                                     {/if}
 
                                     <!-- 3. Program/Series Image (Top layer) -->
-                                    {#if timer.ProgramId}
+                                    {#if timer.tvmazeImage}
+                                        <img
+                                            src={timer.tvmazeImage}
+                                            alt={timer.Name}
+                                            class="absolute inset-0 w-full h-full object-cover text-transparent"
+                                            onerror={handleImageError}
+                                        />
+                                    {:else if timer.ProgramId}
                                         <img
                                             src="{data.JELLYFIN_HOST}/Items/{timer.ProgramId}/Images/Primary?fillWidth=100&quality=90&api_key={data.token}"
                                             alt={timer.Name}

@@ -187,14 +187,34 @@
                                             src="{data.JELLYFIN_HOST}/Items/{timer.ProgramId}/Images/Primary?api_key={data.token}"
                                             alt={timer.Name}
                                             class="w-full h-full object-cover"
-                                            onerror={(e) => (e.currentTarget as HTMLElement).style.display='none'}
+                                            onerror={(e) => {
+                                                const target = e.currentTarget;
+                                                if (show.image?.medium && target.src !== show.image.medium) {
+                                                    target.src = show.image.medium;
+                                                } else {
+                                                    target.style.display = 'none';
+                                                }
+                                            }}
                                         />
                                      {:else if timer.SeriesId}
                                         <img
                                             src="{data.JELLYFIN_HOST}/Items/{timer.SeriesId}/Images/Primary?{timer.SeriesPrimaryImageTag ? `Tag=${timer.SeriesPrimaryImageTag}&` : ''}MaxWidth=200&api_key={data.token}"
                                             alt={timer.Name}
                                             class="w-full h-full object-cover"
-                                            onerror={(e) => (e.currentTarget as HTMLElement).style.display='none'}
+                                            onerror={(e) => {
+                                                const target = e.currentTarget;
+                                                if (show.image?.medium && target.src !== show.image.medium) {
+                                                    target.src = show.image.medium;
+                                                } else {
+                                                    target.style.display = 'none';
+                                                }
+                                            }}
+                                        />
+                                    {:else if show.image?.medium}
+                                        <img
+                                            src={show.image.medium}
+                                            alt={timer.Name}
+                                            class="w-full h-full object-cover"
                                         />
                                     {/if}
                                 </div>

@@ -176,8 +176,24 @@ export const load: PageServerLoad = async ({ cookies, locals }) => {
         const seriesWithImages = await Promise.all(seriesPromises);
         // --- UPDATED LOGIC END ---
 
+        // Enrich Scheduled Recordings with TVMaze Images from seriesWithImages
+        const enrichedScheduledRecordings = scheduledRecordings.map((rec: AnyObject) => {
+             const seriesName = rec.SeriesName || rec.Name;
+             if (!seriesName) return rec;
+
+             const matchingSeries = seriesWithImages.find((s: AnyObject) => cleanName(s.name) === cleanName(seriesName));
+             
+             if (matchingSeries && matchingSeries.tvmazeImage) {
+                 return {
+                     ...rec,
+                     tvmazeImage: matchingSeries.tvmazeImage
+                 };
+             }
+             return rec;
+        });
+
         return {
-            scheduledRecordings,
+            scheduledRecordings: enrichedScheduledRecordings,
             monitoredSeries: seriesWithImages,
             premieres,
             onAir: onAirPrograms,
