@@ -2,6 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import * as jellyfin from '$lib/server/jellyfin';
 import * as tvmaze from '$lib/server/tvmaze';
 import * as db from '$lib/server/db';
+import { cleanName } from '$lib/server/normalization';
 import type { PageServerLoad } from './$types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -28,13 +29,15 @@ export const load: PageServerLoad = async ({ cookies }) => {
         const timerGroups: Record<string, AnyObject> = {};
         for (const timer of (timers || [])) {
             const groupId = timer.SeriesId || timer.Name;
+            if (!groupId) continue;
+
             const isMovie = !timer.SeriesId;
 
             if (!timerGroups[groupId]) {
                 timerGroups[groupId] = {
                     seriesId: timer.SeriesId || timer.ProgramId || timer.Id,
                     seriesName: timer.SeriesName || timer.Name,
-                    seriesImageTag: timer.SeriesPrimaryImageTag || timer.ImageTags?.Primary,
+                    seriesImageTag: timer.SeriesPrimaryImageTag || (isMovie ? timer.ImageTags?.Primary : undefined),
                     isMovie,
                     timers: []
                 };
@@ -65,14 +68,14 @@ export const load: PageServerLoad = async ({ cookies }) => {
                     monitoredSeriesMap.set(rec.SeriesName, {
                         name: rec.SeriesName,
                         id: rec.SeriesId,
-                        imageTag: rec.SeriesPrimaryImageTag || rec.ImageTags?.Primary,
+                        imageTag: rec.SeriesPrimaryImageTag,
                         status: 'Recorded',
                         isMovie: false
                     });
                 } else {
                     // Update existing entry (from Timers) if it's missing image/ID
                     const existing = monitoredSeriesMap.get(rec.SeriesName);
-                    const newImageTag = rec.SeriesPrimaryImageTag || rec.ImageTags?.Primary;
+                    const newImageTag = rec.SeriesPrimaryImageTag;
                     
                     if (!existing.imageTag && newImageTag) {
                         existing.imageTag = newImageTag;
@@ -97,43 +100,43 @@ export const load: PageServerLoad = async ({ cookies }) => {
 
         const monitoredSeries = Array.from(monitoredSeriesMap.values()).sort((a: AnyObject, b: AnyObject) => a.name.localeCompare(b.name));
 
-        // Enrich with TVMaze images
-        const seriesWithImages = [];
-        for (const series of monitoredSeries) {
-            if (series.isMovie) {
-                seriesWithImages.push(series);
-                continue;
-            }
-
+        // Enrich with TVMaze images (Series Only)
+        const seriesPromises = monitoredSeries.map(async (series: AnyObject) => {
             const cachedImage = await db.getSeriesImage(series.name);
             if (cachedImage) {
-                seriesWithImages.push({
+                return {
                     ...series,
                     tvmazeImage: cachedImage
-                });
-                continue;
+                };
+            }
+
+            if (series.isMovie) {
+                return series;
             }
 
             try {
-                // Add a small delay to be polite
-                await new Promise(resolve => setTimeout(resolve, 50)); // Faster delay for full list
+                // Search TVMaze for the show (cached)
                 const results = await tvmaze.searchShows(series.name);
-                const match = results.find((r: AnyObject) => r.show.name.toLowerCase() === series.name.toLowerCase()) || results[0];
+                // Find exact match or fallback to first result
+                const match = results.find((r: AnyObject) => cleanName(r.show.name) === cleanName(series.name)) || results[0];
 
                 if (match && match.show.image) {
-                    seriesWithImages.push({
+                    return {
                         ...series,
                         tvmazeImage: match.show.image.original || match.show.image.medium
-                    });
+                    };
                 } else {
-                    seriesWithImages.push(series);
+                    return series;
                 }
             } catch (e: unknown) {
+                // Silently fail and fallback to Jellyfin image
                 const err = e as AnyObject;
                 console.warn(`Failed to fetch TVMaze image for ${series.name}:`, err.message);
-                seriesWithImages.push(series);
+                return series;
             }
-        }
+        });
+
+        const seriesWithImages = await Promise.all(seriesPromises);
 
         return {
             monitoredSeries: seriesWithImages,

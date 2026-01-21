@@ -21,6 +21,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		const now = Date.now();
 		const roundedNow = Math.floor(now / (15 * 60 * 1000)) * (15 * 60 * 1000);
 		const minEndDate = new Date(roundedNow - 1 * 60 * 60 * 1000).toISOString();
+		// Fetch 12 hours of data
+		const maxStartDate = new Date(roundedNow + 12 * 60 * 60 * 1000).toISOString();
 
 		// Fetch data in parallel for better performance
 		const [channels, fetchedPrograms, timers, seriesTimers] = await Promise.all([
@@ -32,8 +34,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 			),
 			// Fetch programs. 25000 limit to ensure we cover enough time for all channels.
 			getCached(
-				`programs:${userId}:${minEndDate}`,
-				() => jellyfin.getPrograms(userId, sessionId, 25000, null, minEndDate),
+				`programs:${userId}:${minEndDate}:${maxStartDate}`,
+				() => jellyfin.getPrograms(userId, sessionId, 25000, null, minEndDate, maxStartDate),
 				300
 			),
 			// Active timers (recordings) - short cache
@@ -127,11 +129,11 @@ export const load: PageServerLoad = async ({ locals }) => {
 				// Optimize sort: String comparison for ISO dates is faster and correct
 				.sort((a: AnyObject, b: AnyObject) => (a.StartDate < b.StartDate ? -1 : a.StartDate > b.StartDate ? 1 : 0))
 				.map((p: AnyObject) => {
+					const startTimeMs = new Date(p.StartDate).getTime();
+					const endTimeMs = new Date(p.EndDate).getTime();
+
 					// Track max date for frontend optimization
-					if (p.EndDate) {
-						const end = new Date(p.EndDate).getTime();
-						if (end > maxProgramDate) maxProgramDate = end;
-					}
+					if (endTimeMs > maxProgramDate) maxProgramDate = endTimeMs;
 
 					// Check if this specific program is being recorded
 					const timer = timersByProgramId.get(p.Id);
@@ -153,6 +155,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 					return {
 						...p,
+						startTimeMs,
+						endTimeMs,
 						timerId: timer ? timer.Id : null,
 						isRecording: !!timer,
 						seriesTimerId: seriesTimer ? seriesTimer.Id : null,

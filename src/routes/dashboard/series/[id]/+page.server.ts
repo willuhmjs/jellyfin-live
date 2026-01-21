@@ -62,7 +62,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
                          console.warn(`Failed to fetch series ${jShow.SeriesId}, falling back to program data with SeriesId patch:`, e);
                          jShow = {
                              ...jShow,
-                             Id: jShow.SeriesId,
+                             Id: jShow.SeriesId || '',
                              Name: jShow.SeriesName || jShow.Name,
                              Type: 'Series'
                          };

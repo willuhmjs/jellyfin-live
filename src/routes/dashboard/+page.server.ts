@@ -78,7 +78,7 @@ export const load: PageServerLoad = async ({ cookies, locals }) => {
             const groupId = timer.SeriesId || timer.Name;
             const isMovie = !timer.SeriesId;
 
-            if (!timerGroups[groupId]) {
+            if (groupId && !timerGroups[groupId]) {
                 timerGroups[groupId] = {
                     seriesId: timer.SeriesId || timer.ProgramId || timer.Id,
                     seriesName: timer.SeriesName || timer.Name,
@@ -87,7 +87,9 @@ export const load: PageServerLoad = async ({ cookies, locals }) => {
                     timers: []
                 };
             }
-            timerGroups[groupId].timers.push(timer);
+            if (groupId) {
+                timerGroups[groupId].timers.push(timer);
+            }
         }
 
         // Identify all unique content from Timers (Scheduled) and Recordings (Library)

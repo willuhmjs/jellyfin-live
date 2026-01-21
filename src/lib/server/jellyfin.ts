@@ -1,6 +1,15 @@
 import { getSetting } from './db';
 import { Agent } from 'undici';
-import type { JellyfinUser, JellyfinAuthResult, JellyfinChannel, JellyfinProgram } from '$lib/types';
+import type {
+	JellyfinUser,
+	JellyfinAuthResult,
+	JellyfinChannel,
+	JellyfinProgram,
+	JellyfinItem,
+	JellyfinRecording,
+	JellyfinTimer,
+	JellyfinSeriesTimer
+} from '$lib/types';
 
 const headers = {
 	'Content-Type': 'application/json',
@@ -36,7 +45,7 @@ async function handleResponse<T>(res: Response, errorPrefix: string): Promise<T 
 	if (!res.ok) {
 		const text = await res.text().catch(() => res.statusText);
 		const error = new Error(`${errorPrefix}: ${res.status} ${text}`);
-		// @ts-ignore
+		// @ts-expect-error - Error does not have status by default
 		error.status = res.status;
 		throw error;
 	}
@@ -90,7 +99,7 @@ export async function authenticate(username: string, password: string): Promise<
 			user: data.User,
 			accessToken: data.AccessToken
 		};
-	} catch (e) {
+	} catch (e: unknown) {
 		console.error('Authentication error:', e);
 		throw e;
 	}
@@ -116,8 +125,9 @@ export async function getChannels(userId: string, token: string): Promise<Jellyf
 
 		const data = await handleResponse<{ Items: JellyfinChannel[] }>(res, 'Failed to fetch channels');
 		return data?.Items || [];
-	} catch (e: any) {
-		if (e?.status === 401) throw e;
+	} catch (e: unknown) {
+		const err = e as { status?: number };
+		if (err?.status === 401) throw err;
 		console.error('getChannels error:', e);
 		return [];
 	}
@@ -126,7 +136,14 @@ export async function getChannels(userId: string, token: string): Promise<Jellyf
 /**
  * Get Live TV Programs
  */
-export async function getPrograms(userId: string, token: string, limit = 100, searchTerm: string | null = null, minEndDate: string | null = null): Promise<JellyfinProgram[]> {
+export async function getPrograms(
+	userId: string,
+	token: string,
+	limit = 100,
+	searchTerm: string | null = null,
+	minEndDate: string | null = null,
+	maxStartDate: string | null = null
+): Promise<JellyfinProgram[]> {
 	try {
 		// Fetch programs for the next 48 hours to be safe, or just use limit.
 		// We'll use HasAired=false to get future programs.
@@ -151,6 +168,10 @@ export async function getPrograms(userId: string, token: string, limit = 100, se
 			params.append('HasAired', 'false');
 		}
 
+		if (maxStartDate) {
+			params.append('MaxStartDate', maxStartDate);
+		}
+
 		const host = await getHost();
 		const opts = await getFetchOpts();
 		const res = await fetch(`${host}/LiveTv/Programs?${params.toString()}`, {
@@ -163,8 +184,9 @@ export async function getPrograms(userId: string, token: string, limit = 100, se
 
 		const data = await handleResponse<{ Items: JellyfinProgram[] }>(res, 'Failed to fetch programs');
 		return data?.Items || [];
-	} catch (e: any) {
-		if (e?.status === 401) throw e;
+	} catch (e: unknown) {
+		const err = e as { status?: number };
+		if (err?.status === 401) throw err;
 		console.error('getPrograms error:', e);
 		return [];
 	}
@@ -200,8 +222,9 @@ export async function getOnAir(userId: string, token: string): Promise<JellyfinP
 
 		const data = await handleResponse<{ Items: JellyfinProgram[] }>(res, 'Failed to fetch on-air programs');
 		return data?.Items || [];
-	} catch (e: any) {
-		if (e?.status === 401) throw e;
+	} catch (e: unknown) {
+		const err = e as { status?: number };
+		if (err?.status === 401) throw err;
 		console.error('getOnAir error:', e);
 		return [];
 	}
@@ -229,8 +252,9 @@ export async function getProgram(userId: string, token: string, programId: strin
 		});
 
 		return await handleResponse<JellyfinProgram>(res, 'Failed to fetch program details');
-	} catch (e: any) {
-		if (e?.status === 401) throw e;
+	} catch (e: unknown) {
+		const err = e as { status?: number };
+		if (err?.status === 401) throw err;
 		console.error('getProgram error:', e);
 		return null;
 	}
@@ -239,7 +263,7 @@ export async function getProgram(userId: string, token: string, programId: strin
 /**
  * Get Items by IDs
  */
-export async function getItems(userId: string, token: string, ids: string[]): Promise<any[]> {
+export async function getItems(userId: string, token: string, ids: string[]): Promise<JellyfinItem[]> {
 	if (!ids || ids.length === 0) return [];
 
 	try {
@@ -259,22 +283,30 @@ export async function getItems(userId: string, token: string, ids: string[]): Pr
 			...opts
 		});
 
-		const data = await handleResponse<{ Items: any[] }>(res, 'Failed to fetch items by IDs').catch(e => {
-			console.warn(e.message);
-			return { Items: [] };
-		});
+		const data = await handleResponse<{ Items: JellyfinItem[] }>(res, 'Failed to fetch items by IDs').catch(
+			(e) => {
+				console.warn(e.message);
+				return { Items: [] };
+			}
+		);
 		return data?.Items || [];
-	} catch (e: any) {
-		if (e?.status === 401) throw e;
+	} catch (e: unknown) {
+		const err = e as { status?: number };
+		if (err?.status === 401) throw err;
 		console.error('getItems error:', e);
 		return [];
 	}
 }
 
 /**
- * Get Episodes for a Series/Season
- */
-export async function getEpisodes(userId: string, token: string, seriesId: string, seasonId: string | null = null): Promise<any[]> {
+	* Get Episodes for a Series/Season
+	*/
+export async function getEpisodes(
+	userId: string,
+	token: string,
+	seriesId: string,
+	seasonId: string | null = null
+): Promise<JellyfinItem[]> {
 	try {
 		const host = await getHost();
 		const opts = await getFetchOpts();
@@ -300,19 +332,20 @@ export async function getEpisodes(userId: string, token: string, seriesId: strin
 			...opts
 		});
 
-		const data = await handleResponse<{ Items: any[] }>(res, 'Failed to fetch episodes');
+		const data = await handleResponse<{ Items: JellyfinItem[] }>(res, 'Failed to fetch episodes');
 		return data?.Items || [];
-	} catch (e: any) {
-		if (e?.status === 401) throw e;
+	} catch (e: unknown) {
+		const err = e as { status?: number };
+		if (err?.status === 401) throw err;
 		console.error('getEpisodes error:', e);
 		return [];
 	}
 }
 
 /**
- * Get Recordings
- */
-export async function getRecordings(userId: string, token: string): Promise<any[]> {
+	* Get Recordings
+	*/
+export async function getRecordings(userId: string, token: string): Promise<JellyfinRecording[]> {
 	try {
 		const params = new URLSearchParams({
 			UserId: userId,
@@ -333,26 +366,36 @@ export async function getRecordings(userId: string, token: string): Promise<any[
 			...opts
 		});
 
-		const data = await handleResponse<{ Items: any[] }>(res, 'Failed to fetch recordings');
+		const data = await handleResponse<{ Items: JellyfinRecording[] }>(res, 'Failed to fetch recordings');
 		return data?.Items || [];
-	} catch (e: any) {
-		if (e?.status === 401) throw e;
+	} catch (e: unknown) {
+		const err = e as { status?: number };
+		if (err?.status === 401) throw err;
 		console.error('getRecordings error:', e);
 		return [];
 	}
 }
 
 /**
- * Get Series from Library
- */
-export async function getSeries(userId: string, token: string, searchTerm: string | null = null): Promise<any[]> {
+	* Get Series from Library
+	*/
+export async function getSeries(
+	userId: string,
+	token: string,
+	searchTerm: string | null = null
+): Promise<JellyfinItem[]> {
 	return searchItems(userId, token, searchTerm, ['Series']);
 }
 
 /**
- * Search for Items (Series, Movie, etc)
- */
-export async function searchItems(userId: string, token: string, searchTerm: string | null, types: string[] = ['Series']): Promise<any[]> {
+	* Search for Items (Series, Movie, etc)
+	*/
+export async function searchItems(
+	userId: string,
+	token: string,
+	searchTerm: string | null,
+	types: string[] = ['Series']
+): Promise<JellyfinItem[]> {
 	try {
 		const host = await getHost();
 		const opts = await getFetchOpts();
@@ -377,10 +420,11 @@ export async function searchItems(userId: string, token: string, searchTerm: str
 			...opts
 		});
 
-		const data = await handleResponse<{ Items: any[] }>(res, 'Failed to search items');
+		const data = await handleResponse<{ Items: JellyfinItem[] }>(res, 'Failed to search items');
 		return data?.Items || [];
-	} catch (e: any) {
-		if (e?.status === 401) throw e;
+	} catch (e: unknown) {
+		const err = e as { status?: number };
+		if (err?.status === 401) throw err;
 		console.error('searchItems error:', e);
 		return [];
 	}
@@ -402,8 +446,9 @@ export async function getChannel(userId: string, token: string, channelId: strin
 		});
 
 		return await handleResponse<JellyfinChannel>(res, 'Failed to fetch channel details');
-	} catch (e: any) {
-		if (e?.status === 401) throw e;
+	} catch (e: unknown) {
+		const err = e as { status?: number };
+		if (err?.status === 401) throw err;
 		console.error('getChannel error:', e);
 		return null;
 	}
@@ -413,7 +458,12 @@ export async function getChannel(userId: string, token: string, channelId: strin
  * Schedule a recording
  * @throws {Error} If scheduling fails
  */
-export async function scheduleRecording(token: string, programId: string, isSeries = false, userId = ''): Promise<any> {
+export async function scheduleRecording(
+	token: string,
+	programId: string,
+	isSeries = false,
+	userId = ''
+): Promise<unknown> {
 	try {
 		const endpoint = isSeries ? '/LiveTv/SeriesTimers' : '/LiveTv/Timers';
 		const host = await getHost();
@@ -445,7 +495,7 @@ export async function scheduleRecording(token: string, programId: string, isSeri
 			return { Status: 'Completed', Id: program.TimerId, AlreadyExists: true };
 		}
 
-		/** @type {any} */
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		let payload: any;
 
 		if (isSeries) {
@@ -563,7 +613,7 @@ export async function scheduleRecording(token: string, programId: string, isSeri
 		});
 
 		return await handleResponse(res, 'Failed to schedule recording');
-	} catch (e) {
+	} catch (e: unknown) {
 		console.error('scheduleRecording error:', e);
 		throw e;
 	}
@@ -588,7 +638,10 @@ export async function cancelSeriesTimer(token: string, timerId: string): Promise
 
 		await handleResponse(res, 'Failed to cancel series timer');
 		return true;
-	} catch (e) {
+	} catch (e: unknown) {
+		const err = e as { status?: number };
+		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
+		err?.status;
 		console.error('cancelSeriesTimer error:', e);
 		throw e;
 	}
@@ -597,7 +650,7 @@ export async function cancelSeriesTimer(token: string, timerId: string): Promise
 /**
  * Get Timers (Scheduled Recordings)
  */
-export async function getTimers(token: string): Promise<any[]> {
+export async function getTimers(token: string): Promise<JellyfinTimer[]> {
 	try {
 		const host = await getHost();
 		const opts = await getFetchOpts();
@@ -614,19 +667,20 @@ export async function getTimers(token: string): Promise<any[]> {
 			...opts
 		});
 
-		const data = await handleResponse<{ Items: any[] }>(res, 'Failed to fetch timers');
+		const data = await handleResponse<{ Items: JellyfinTimer[] }>(res, 'Failed to fetch timers');
 		return data?.Items || [];
-	} catch (e: any) {
-		if (e?.status === 401) throw e;
+	} catch (e: unknown) {
+		const err = e as { status?: number };
+		if (err?.status === 401) throw err;
 		console.error('getTimers error:', e);
 		return [];
 	}
 }
 
 /**
- * Get Series Timers
- */
-export async function getSeriesTimers(token: string): Promise<any[]> {
+	* Get Series Timers
+	*/
+export async function getSeriesTimers(token: string): Promise<JellyfinSeriesTimer[]> {
 	try {
 		const host = await getHost();
 		const opts = await getFetchOpts();
@@ -638,10 +692,11 @@ export async function getSeriesTimers(token: string): Promise<any[]> {
 			...opts
 		});
 
-		const data = await handleResponse<{ Items: any[] }>(res, 'Failed to fetch series timers');
+		const data = await handleResponse<{ Items: JellyfinSeriesTimer[] }>(res, 'Failed to fetch series timers');
 		return data?.Items || [];
-	} catch (e: any) {
-		if (e?.status === 401) throw e;
+	} catch (e: unknown) {
+		const err = e as { status?: number };
+		if (err?.status === 401) throw err;
 		console.error('getSeriesTimers error:', e);
 		return [];
 	}
@@ -670,16 +725,19 @@ export async function deleteRecording(token: string, recordingId: string): Promi
 
 		await handleResponse(res, 'Failed to delete recording');
 		return true;
-	} catch (e) {
+	} catch (e: unknown) {
+		const err = e as { status?: number };
+		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
+		err?.status; // Keep casting valid if needed or just use as is
 		console.error('deleteRecording error:', e);
 		throw e;
 	}
 }
 
 /**
- * Cancel a timer
- * @throws {Error} If cancellation fails
- */
+	* Cancel a timer
+	* @throws {Error} If cancellation fails
+	*/
 export async function cancelTimer(token: string, timerId: string): Promise<boolean> {
 	try {
 		const host = await getHost();
@@ -695,7 +753,10 @@ export async function cancelTimer(token: string, timerId: string): Promise<boole
 
 		await handleResponse(res, 'Failed to cancel timer');
 		return true;
-	} catch (e) {
+	} catch (e: unknown) {
+		const err = e as { status?: number };
+		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
+		err?.status;
 		console.error('cancelTimer error:', e);
 		throw e;
 	}

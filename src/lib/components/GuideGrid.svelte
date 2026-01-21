@@ -67,7 +67,7 @@
 			? new Date(
 					Math.max(
 						...allPrograms
-							.map((p: any) => new Date(p.EndDate).getTime())
+							.map((p: any) => p.endTimeMs || new Date(p.EndDate).getTime())
 							.filter((t: number) => !isNaN(t))
 					)
 				)
@@ -116,6 +116,11 @@
 		if (program.RunTimeTicks && program.RunTimeTicks > 0) {
 			const durationMs = program.RunTimeTicks / 10000;
 			durationMinutes = durationMs / 1000 / 60;
+		} else if (program.startTimeMs && program.endTimeMs) {
+			const diffMs = program.endTimeMs - program.startTimeMs;
+			if (diffMs > 0) {
+				durationMinutes = diffMs / 1000 / 60;
+			}
 		} else if (program.StartDate && program.EndDate) {
 			const start = new Date(program.StartDate);
 			const end = new Date(program.EndDate);
@@ -130,9 +135,9 @@
 	}
 
 	function getProgramLeft(program: any) {
-		const start = new Date(program.StartDate);
-		if (isNaN(start.getTime())) return 0;
-		const diffMs = start.getTime() - gridStartTime.getTime();
+		const startTime = program.startTimeMs || new Date(program.StartDate).getTime();
+		if (isNaN(startTime)) return 0;
+		const diffMs = startTime - gridStartTime.getTime();
 		const diffMinutes = diffMs / 1000 / 60;
 		// Allow negative values so programs starting before grid start are positioned correctly (and clipped)
 		return diffMinutes * PIXELS_PER_MINUTE;
