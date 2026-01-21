@@ -1,107 +1,50 @@
 # Jellyfin Live
 
-Jellyfin Live is a custom frontend application designed specifically for managing Jellyfin's Live TV and DVR capabilities. It provides a streamlined and dedicated interface for your live television needs.
+A modern, responsive dashboard for managing Jellyfin Live TV and DVR.
 
-## Features
+## What is this?
 
--   **Authentication:** Securely log in using your existing Jellyfin credentials.
--   **Live TV Guide:** Browse a comprehensive grid view of your channel lineups and upcoming programs.
--   **Schedule Recordings:** Easily set up recordings for single programs or entire series.
--   **Library Browsing:** Access your media libraries directly through the interface.
--   **Search:** Quickly find programs, series, and movies.
+Jellyfin Live is a standalone web application that interfaces with your Jellyfin server to provide a better experience for:
+- Viewing the Live TV Guide (EPG)
+- Managing Scheduled Recordings
+- Browsing Monitored Series
+- Seeing what's On Air and upcoming Premieres
 
-## Tech Stack
+It uses your existing Jellyfin credentials to log in.
 
--   [SvelteKit](https://kit.svelte.dev/)
--   [TailwindCSS](https://tailwindcss.com/)
--   [Jellyfin API](https://api.jellyfin.org/)
--   [PostgreSQL](https://www.postgresql.org/)
+## Quick Start
 
-## Docker Deployment
+The fastest way to get running is using Docker Compose.
 
-The recommended way to deploy Jellyfin Live is using Docker.
-
-### Docker Compose
-
-Create a `docker-compose.yml` file with the following configuration:
-
-```yaml
-services:
-  jellyfin-live:
-    image: ghcr.io/willuhmjs/jellyfin-live:latest
-    ports:
-      - "3000:3000"
-    environment:
-      - DATABASE_URL=postgresql://jellyfin:jellyfin@postgres:5432/jellyfin
-      - ORIGIN=http://localhost:3000
-    depends_on:
-      - postgres
-
-  postgres:
-    image: postgres:18
-    environment:
-      - POSTGRES_USER=jellyfin
-      - POSTGRES_PASSWORD=jellyfin
-      - POSTGRES_DB=jellyfin
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-
-volumes:
-  postgres-data:
-```
-
-Run the container:
+### 1. Clone the repository
 
 ```bash
-docker-compose up -d
+git clone https://github.com/willuhmjs/jellyfin-live.git
+cd jellyfin-live
 ```
 
-## Local Development
+### 2. Launch
 
-If you wish to contribute or run the application locally without Docker, follow these steps.
+```bash
+docker-compose up -d --build
+```
 
-### Prerequisites
+This will build the application and a Postgres database. The app will be available at [http://localhost:3000](http://localhost:3000).
 
--   A running [Jellyfin](https://jellyfin.org/) server.
--   Node.js.
--   PostgreSQL database.
+### 3. Login
 
-### Configuration
+Use your Jellyfin server URL and your user credentials to log in.
 
-1.  Copy the example environment file:
+## Development
+
+If you want to run it without Docker:
+
+1.  Copy `.env.example` to `.env` and configure your database URL.
+2.  Install dependencies:
     ```bash
-    cp .env.example .env
+    pnpm install
     ```
-
-2.  Update the `.env` file with your PostgreSQL configuration:
-    ```env
-    POSTGRES_USER=jellyfin
-    POSTGRES_PASSWORD=jellyfin
-    POSTGRES_DB=jellyfin
-    DATABASE_URL=postgresql://jellyfin:jellyfin@localhost:5432/jellyfin
+3.  Start the development server:
+    ```bash
+    pnpm dev
     ```
-
-3.  **Onboarding:** Upon first launch, the application will guide you through an onboarding process to configure your Jellyfin server URL.
-
-### Running Locally
-
-Once you've installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```bash
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-### Building
-
-To create a production version of your app:
-
-```bash
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app manually, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
