@@ -1,31 +1,29 @@
-<script>
+<script lang="ts">
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { enhance } from '$app/forms';
     import { toast } from '$lib/stores/toast';
 
-	export let program;
-	   export let host = '';
-	   export let token = '';
+	let { program, host = '', token = '' }: { program: any, host?: string, token?: string } = $props();
 
 	const dispatch = createEventDispatcher();
     
-    let richDetails = null;
-    let episodes = [];
-    let loadingDetails = true;
-    let loadingEpisodes = false;
+    let richDetails: any = $state(null);
+    let episodes: any[] = $state([]);
+    let loadingDetails = $state(true);
+    let loadingEpisodes = $state(false);
 
 	function close() {
 		dispatch('close');
 	}
 
-	function formatDateTime(dateString) {
+	function formatDateTime(dateString: string | Date) {
 		const date = new Date(dateString);
-		return date.toLocaleString([], { 
-            weekday: 'short', 
-            month: 'short', 
-            day: 'numeric', 
-            hour: '2-digit', 
-            minute: '2-digit' 
+		return date.toLocaleString([], {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
         });
 	}
 
@@ -58,7 +56,7 @@
     });
 
     const submitHandler = () => {
-        return async ({ result, update }) => {
+        return async ({ result, update }: any) => {
             if (result.type === 'success') {
                 if (result.data?.success) {
                     toast.add('Operation successful', 'success');
@@ -73,16 +71,16 @@
         };
     };
 
-    $: isLive = (() => {
+    let isLive = $derived.by(() => {
         if (!program.StartDate || !program.EndDate) return false;
         const start = new Date(program.StartDate);
         const end = new Date(program.EndDate);
         const current = new Date();
         return current >= start && current < end;
-    })();
+    });
 </script>
 
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" on:click|self={close} role="dialog" aria-modal="true" tabindex="-1" on:keydown={(e) => e.key === 'Escape' && close()}>
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onclick={(e) => e.target === e.currentTarget && close()} role="dialog" aria-modal="true" tabindex="-1" onkeydown={(e) => e.key === 'Escape' && close()}>
 	<div class="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-lg border border-gray-700 bg-gray-900 shadow-xl flex flex-col">
         <!-- Header Image & Title -->
         <div class="relative h-48 sm:h-64 bg-gray-800 shrink-0 overflow-hidden">
@@ -121,7 +119,7 @@
                         </div>
                     </div>
                     
-                    <button on:click={close} class="text-gray-400 hover:text-white mb-2 p-2 bg-black/40 rounded-full backdrop-blur-md" aria-label="Close">
+                    <button onclick={close} class="text-gray-400 hover:text-white mb-2 p-2 bg-black/40 rounded-full backdrop-blur-md" aria-label="Close">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                         </svg>

@@ -1,29 +1,31 @@
-<script>
+<script lang="ts">
     import { enhance } from '$app/forms';
     import { fade, slide } from 'svelte/transition';
     import { toast } from '$lib/stores/toast';
+    import type { PageData, ActionData } from './$types';
 
-    export let data;
-    export let form;
+    let { data, form }: { data: PageData; form: ActionData } = $props();
 
-    $: show = data.show;
-    $: seasons = data.seasons;
-    $: isMonitored = data.isMonitored;
+    let show = $derived(data.show);
+    let seasons = $derived(data.seasons as Record<string, any[]> || {});
+    let isMonitored = $derived(data.isMonitored);
 
-    let processing = false;
-    let expandedSeasons = {};
+    let processing = $state(false);
+    let expandedSeasons: Record<string, boolean> = $state({});
 
-    function toggleSeason(seasonNum) {
+    function toggleSeason(seasonNum: string) {
         expandedSeasons[seasonNum] = !expandedSeasons[seasonNum];
     }
 
     // React to form result
-    $: if (form?.success) {
-        toast.add(form.message || 'Series recording scheduled!', 'success');
-        // Optimistic update could happen here, but we rely on page reload for isMonitored update
-    } else if (form?.message) {
-        toast.add(form.message, 'error');
-    }
+    $effect(() => {
+        if (form?.success) {
+            toast.add(form.message || 'Series recording scheduled!', 'success');
+            // Optimistic update could happen here, but we rely on page reload for isMonitored update
+        } else if (form?.message) {
+            toast.add(form.message, 'error');
+        }
+    });
 </script>
 
 <div class="p-6 max-w-7xl mx-auto space-y-8">
@@ -185,14 +187,14 @@
                                             src="{data.JELLYFIN_HOST}/Items/{timer.ProgramId}/Images/Primary?api_key={data.token}"
                                             alt={timer.Name}
                                             class="w-full h-full object-cover"
-                                            on:error={(e) => e.currentTarget.style.display='none'}
+                                            onerror={(e) => (e.currentTarget as HTMLElement).style.display='none'}
                                         />
                                      {:else if timer.SeriesId}
                                         <img
                                             src="{data.JELLYFIN_HOST}/Items/{timer.SeriesId}/Images/Primary?{timer.SeriesPrimaryImageTag ? `Tag=${timer.SeriesPrimaryImageTag}&` : ''}MaxWidth=200&api_key={data.token}"
                                             alt={timer.Name}
                                             class="w-full h-full object-cover"
-                                            on:error={(e) => e.currentTarget.style.display='none'}
+                                            onerror={(e) => (e.currentTarget as HTMLElement).style.display='none'}
                                         />
                                     {/if}
                                 </div>
@@ -240,7 +242,7 @@
                         class="w-full px-6 py-4 bg-gray-800/50 flex justify-between items-center hover:bg-gray-800 transition-colors text-left"
                         class:border-b={expandedSeasons[seasonNum]}
                         class:border-gray-800={expandedSeasons[seasonNum]}
-                        on:click={() => toggleSeason(seasonNum)}
+                        onclick={() => toggleSeason(seasonNum)}
                     >
                         <div class="flex items-center gap-3">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400 transform transition-transform duration-200 {expandedSeasons[seasonNum] ? 'rotate-180' : ''}" viewBox="0 0 20 20" fill="currentColor">

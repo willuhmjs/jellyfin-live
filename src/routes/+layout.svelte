@@ -3,8 +3,10 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import Toast from '$lib/components/Toast.svelte';
 	import Navbar from '$lib/components/Navbar.svelte';
+	import type { LayoutData } from './$types';
+	import type { Snippet } from 'svelte';
 
-	let { children, data } = $props();
+	let { children, data }: { children: Snippet; data: LayoutData } = $props();
 </script>
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>

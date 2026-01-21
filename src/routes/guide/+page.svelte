@@ -1,26 +1,27 @@
-<script>
+<script lang="ts">
 	import GuideGrid from '$lib/components/GuideGrid.svelte';
 	import ProgramModal from '$lib/components/ProgramModal.svelte';
+	import type { PageData, ActionData } from './$types';
 
-	export let data;
-	export let form;
+	let { data, form }: { data: PageData; form: ActionData } = $props();
 
-	let selectedProgram = null;
-	let searchQuery = '';
+	let selectedProgram: any = $state(null);
+	let searchQuery = $state('');
 
-	$: filteredChannels =
-		data.channels?.filter((channel) => {
+	let filteredChannels = $derived(
+		data.channels?.filter((channel: any) => {
 			if (!searchQuery) return true;
 			const q = searchQuery.toLowerCase();
 			return (
 				channel.Name?.toLowerCase()?.includes(q) ||
 				channel.Number?.toString()?.includes(q) ||
 				channel.ChannelNumber?.toString()?.includes(q) ||
-				channel.programs?.some((p) => p.Name?.toLowerCase()?.includes(q))
+				channel.programs?.some((p: any) => p.Name?.toLowerCase()?.includes(q))
 			);
-		}) || [];
+		}) || []
+	);
 
-	function handleSelect(event) {
+	function handleSelect(event: CustomEvent) {
 		selectedProgram = event.detail;
 	}
 
@@ -28,9 +29,11 @@
 		selectedProgram = null;
 	}
 
-	$: if (form?.success) {
-		selectedProgram = null;
-	}
+	$effect(() => {
+		if (form?.success) {
+			selectedProgram = null;
+		}
+	});
 </script>
 
 <div class="flex h-full flex-col bg-background">

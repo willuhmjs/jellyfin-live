@@ -1,5 +1,7 @@
-<script>
-	export let form;
+<script lang="ts">
+	import type { ActionData } from './$types';
+
+	let { form }: { form: ActionData } = $props();
 </script>
 
 <div class="flex min-h-screen items-center justify-center bg-gray-900 text-white">

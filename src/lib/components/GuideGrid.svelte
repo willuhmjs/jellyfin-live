@@ -1,104 +1,105 @@
-<script>
+<script lang="ts">
 	import { createEventDispatcher, onMount, onDestroy } from 'svelte';
 
-	export let channels = [];
-	export let host = '';
-	export let token = '';
-	/** @type {string | null} */
-	export let maxDate = null;
+	let { channels = [], host = '', token = '', maxDate = null }: { channels?: any[], host?: string, token?: string, maxDate?: string | null } = $props();
 
 	const dispatch = createEventDispatcher();
 	const PIXELS_PER_MINUTE = 4; // 1 min = 4px
 	const CHANNEL_COLUMN_WIDTH = 96; // w-24 = 6rem = 96px
 	const ITEM_HEIGHT = 96;
 
-	let headerEl;
-	let gridContainer;
+	let headerEl: HTMLElement | undefined = $state();
+	let gridContainer: HTMLElement | undefined = $state();
 	// Use a static reference for grid start to prevent jumping when time updates
 	const gridReferenceTime = new Date();
-	let now = new Date();
-	let scrollX = 0;
-	let scrollTop = 0;
-	let viewportHeight = 0;
-	let viewportWidth = 0;
-	let resizeObserver;
-	let nowInterval;
+	let now = $state(new Date());
+	let scrollX = $state(0);
+	let scrollTop = $state(0);
+	let viewportHeight = $state(0);
+	let viewportWidth = $state(0);
+	let resizeObserver: ResizeObserver;
+	let nowInterval: any;
 
 	// Virtualization Logic
-	$: totalHeight = channels.length * ITEM_HEIGHT;
+	let totalHeight = $derived(channels.length * ITEM_HEIGHT);
 	
-	$: startIndex = Math.floor(scrollTop / ITEM_HEIGHT);
-	$: endIndex = Math.min(
+	let startIndex = $derived(Math.floor(scrollTop / ITEM_HEIGHT));
+	let endIndex = $derived(Math.min(
 		channels.length,
 		Math.ceil((scrollTop + viewportHeight) / ITEM_HEIGHT)
-	);
+	));
 	
 	// Add buffer
-	$: visibleStartIndex = Math.max(0, startIndex - 2);
-	$: visibleEndIndex = Math.min(channels.length, endIndex + 5);
+	let visibleStartIndex = $derived(Math.max(0, startIndex - 2));
+	let visibleEndIndex = $derived(Math.min(channels.length, endIndex + 5));
 	
-	$: visibleChannels = channels.slice(visibleStartIndex, visibleEndIndex).map((c, i) => ({
+	let visibleChannels = $derived(channels.slice(visibleStartIndex, visibleEndIndex).map((c, i) => ({
 	       ...c,
 	       virtualTop: (visibleStartIndex + i) * ITEM_HEIGHT
-	   }));
+	   })));
 
 	// Reactive computations for grid dimensions
-	$: allPrograms = !maxDate ? channels.flatMap((c) => c.programs || []) : [];
+	let allPrograms = $derived(!maxDate ? channels.flatMap((c) => c.programs || []) : []);
 
 	// Determine grid start/end based on available programs or fallback to now
 	// User Request: "enable the user to scroll left up to 3 hours"
-	$: gridStartTime = new Date(
-		Math.floor(gridReferenceTime.getTime() / (30 * 60 * 1000)) * 30 * 60 * 1000 -
-			3 * 60 * 60 * 1000
-	);
+	let gridStartTime = $derived.by(() => {
+		let start = new Date(
+			Math.floor(gridReferenceTime.getTime() / (30 * 60 * 1000)) * 30 * 60 * 1000 -
+				3 * 60 * 60 * 1000
+		);
+		if (isNaN(start.getTime())) {
+			start = new Date();
+			start.setMinutes(0, 0, 0); // Round to hour
+		}
+		return start;
+	});
 
 	// Current 30-min slot for the "alarm" column
-	$: currentSlotStart = new Date(Math.floor(now.getTime() / (30 * 60 * 1000)) * 30 * 60 * 1000);
-	$: currentSlotLeft =
-		((currentSlotStart - gridStartTime) / 1000 / 60) * PIXELS_PER_MINUTE;
+	let currentSlotStart = $derived(new Date(Math.floor(now.getTime() / (30 * 60 * 1000)) * 30 * 60 * 1000));
+	let currentSlotLeft = $derived(
+		((currentSlotStart.getTime() - gridStartTime.getTime()) / 1000 / 60) * PIXELS_PER_MINUTE
+	);
 
-	$: calculatedMaxDate = maxDate
+	let calculatedMaxDate = $derived(maxDate
 		? new Date(maxDate)
 		: allPrograms.length > 0
 			? new Date(
 					Math.max(
 						...allPrograms
-							.map((p) => new Date(p.EndDate).getTime())
-							.filter((t) => !isNaN(t))
+							.map((p: any) => new Date(p.EndDate).getTime())
+							.filter((t: number) => !isNaN(t))
 					)
 				)
-			: new Date(Date.now() + 24 * 60 * 60 * 1000);
+			: new Date(Date.now() + 24 * 60 * 60 * 1000));
 
 	// Ensure grid end time is at least 24 hours from start if data is sparse, or follows maxDate
-	$: gridEndTime = new Date(
-		Math.max(
-			Math.ceil(calculatedMaxDate.getTime() / (30 * 60 * 1000)) * 30 * 60 * 1000,
-			gridStartTime.getTime() + 24 * 60 * 60 * 1000
-		)
-	);
+	let gridEndTime = $derived.by(() => {
+		let end = new Date(
+			Math.max(
+				Math.ceil(calculatedMaxDate.getTime() / (30 * 60 * 1000)) * 30 * 60 * 1000,
+				gridStartTime.getTime() + 24 * 60 * 60 * 1000
+			)
+		);
+		if (isNaN(end.getTime())) {
+			end = new Date(gridStartTime.getTime() + 24 * 60 * 60 * 1000);
+		}
+		return end;
+	});
 
-	// Safety check if dates are invalid
-	$: if (isNaN(gridStartTime.getTime())) {
-		gridStartTime = new Date();
-		gridStartTime.setMinutes(0, 0, 0); // Round to hour
-	}
-	$: if (isNaN(gridEndTime.getTime())) {
-		gridEndTime = new Date(gridStartTime.getTime() + 24 * 60 * 60 * 1000);
-	}
+	let totalDurationMinutes = $derived((gridEndTime.getTime() - gridStartTime.getTime()) / 1000 / 60);
+	let totalWidth = $derived(Math.max(totalDurationMinutes * PIXELS_PER_MINUTE, 100));
 
-	$: totalDurationMinutes = (gridEndTime - gridStartTime) / 1000 / 60;
-	$: totalWidth = Math.max(totalDurationMinutes * PIXELS_PER_MINUTE, 100);
-
-	$: {
+	$effect(() => {
 		console.log('[GuideGrid] Debug:', {
 			channelsCount: channels.length,
 			programsCount: allPrograms.length,
 			gridStartTime,
 			totalWidth
 		});
-	}
+	});
 
-	$: timeSlots = (() => {
+	let timeSlots = $derived((() => {
 		const slots = [];
 		let current = new Date(gridStartTime);
 		while (current < gridEndTime) {
@@ -106,10 +107,10 @@
 			current = new Date(current.getTime() + 30 * 60 * 1000);
 		}
 		return slots;
-	})();
+	})());
 	
 	// Helper to calculate width
-	function getProgramWidth(program) {
+	function getProgramWidth(program: any) {
 		let durationMinutes = 30; // Default fallback
 
 		if (program.RunTimeTicks && program.RunTimeTicks > 0) {
@@ -118,7 +119,7 @@
 		} else if (program.StartDate && program.EndDate) {
 			const start = new Date(program.StartDate);
 			const end = new Date(program.EndDate);
-			const diffMs = end - start;
+			const diffMs = end.getTime() - start.getTime();
 			if (diffMs > 0) {
 				durationMinutes = diffMs / 1000 / 60;
 			}
@@ -128,25 +129,25 @@
 		return Math.max(durationMinutes * PIXELS_PER_MINUTE, 40);
 	}
 
-	function getProgramLeft(program) {
+	function getProgramLeft(program: any) {
 		const start = new Date(program.StartDate);
 		if (isNaN(start.getTime())) return 0;
-		const diffMs = start - gridStartTime;
+		const diffMs = start.getTime() - gridStartTime.getTime();
 		const diffMinutes = diffMs / 1000 / 60;
 		// Allow negative values so programs starting before grid start are positioned correctly (and clipped)
 		return diffMinutes * PIXELS_PER_MINUTE;
 	}
 
-	function formatTime(dateString) {
+	function formatTime(dateString: string | Date) {
 		const date = new Date(dateString);
 		return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 	}
 
-	function handleProgramClick(program) {
+	function handleProgramClick(program: any) {
 		dispatch('select', program);
 	}
 
-	function isTextRightAligned(program, currentScrollX) {
+	function isTextRightAligned(program: any, currentScrollX: number) {
 		if (!program) return false;
 		const left = getProgramLeft(program);
 		const width = getProgramWidth(program);
@@ -164,8 +165,8 @@
 		return visibleCenter > cardCenter;
 	}
 
-	function handleScroll(e) {
-		const target = e.target;
+	function handleScroll(e: Event) {
+		const target = e.target as HTMLElement;
 		scrollTop = target.scrollTop;
 		scrollX = target.scrollLeft;
 		
@@ -195,7 +196,7 @@
 			resizeObserver.observe(gridContainer);
 			
 			// Scroll to "Now"
-			const diffMs = new Date() - gridStartTime;
+			const diffMs = new Date().getTime() - gridStartTime.getTime();
 			if (diffMs > 0) {
 				const diffMinutes = diffMs / 1000 / 60;
 				const startPixels = diffMinutes * PIXELS_PER_MINUTE;
@@ -266,7 +267,7 @@
 		<div
 			class="flex-1 relative h-full overflow-auto guide-grid-scroll-container"
 			bind:this={gridContainer}
-			on:scroll={handleScroll}
+			onscroll={handleScroll}
 		>
 			<!-- Virtualization Container -->
 			<div
@@ -295,7 +296,7 @@
 										src="{host}/Items/{item.Id}/Images/Primary?fillWidth=100&quality=90&api_key={token}"
 										alt={item.Name}
 										class="relative z-10 max-h-full max-w-full object-contain"
-										on:error={(e) => (e.currentTarget.style.display = 'none')}
+										onerror={(e) => ((e.currentTarget as HTMLElement).style.display = 'none')}
 									/>
 								</div>
 							{/if}
@@ -314,14 +315,14 @@
 							></div>
 
 							{#each item.programs as program}
-								<!-- svelte-ignore a11y-click-events-have-key-events -->
+								<!-- svelte-ignore a11y_click_events_have_key_events -->
 								<div
 									class="absolute top-1 bottom-1 flex flex-col justify-center overflow-hidden rounded border border-gray-700 bg-gray-800 p-1 text-xs hover:bg-blue-900/40 cursor-pointer transition-colors z-10"
 									class:border-red-500={program.isRecording || program.isSeriesRecording}
 									class:border-2={program.isRecording || program.isSeriesRecording}
 									class:text-right={isTextRightAligned(program, scrollX)}
 									style="width: {getProgramWidth(program) - 4}px; left: {getProgramLeft(program)}px;"
-									on:click={() => handleProgramClick(program)}
+									onclick={() => handleProgramClick(program)}
 									role="button"
 									tabindex="0"
 								>

@@ -1,17 +1,17 @@
-<script>
+<script lang="ts">
     import { enhance } from '$app/forms';
     import { onMount } from 'svelte';
     import { fade, fly } from 'svelte/transition';
     import { flip } from 'svelte/animate';
     import ProgramModal from '$lib/components/ProgramModal.svelte';
+    import type { PageData, ActionData } from './$types';
 
-    export let data;
-    export let form;
+    let { data, form }: { data: PageData; form: ActionData } = $props();
 
-    let optimisticDismissed = false;
-    $: showWelcome = data.showWelcomeBanner && !optimisticDismissed;
+    let optimisticDismissed = $state(false);
+    let showWelcome = $derived(data.showWelcomeBanner && !optimisticDismissed);
 
-    let now = new Date();
+    let now = $state(new Date());
 
     onMount(() => {
         const interval = setInterval(() => {
@@ -20,22 +20,20 @@
         return () => clearInterval(interval);
     });
 
-    // @ts-ignore
-    $: isAiring = (start, end) => {
+    const isAiring = (start: string | Date, end: string | Date) => {
         const startTime = new Date(start);
         const endTime = new Date(end);
         return now >= startTime && now <= endTime;
     };
 
-    let libraryFilter = 'all';
+    let libraryFilter = $state('all');
 
-    $: filteredSeries = data.monitoredSeries.filter(series => {
+    let filteredSeries = $derived(data.monitoredSeries.filter((series: any) => {
         if (libraryFilter === 'Recorded') return series.status === 'Recorded';
         return true;
-    });
+    }));
 
-    /** @param {string} tag */
-    function handleHeroAction(tag) {
+    function handleHeroAction(tag: string) {
         if (tag === 'Upcoming' || tag === 'Premieres') {
             const el = document.getElementById('premieres');
             if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -50,15 +48,14 @@
         }
     }
 
-    /** @param {Event} e */
-    function handleImageError(e) {
-        const target = /** @type {HTMLImageElement} */ (e.currentTarget);
+    function handleImageError(e: Event) {
+        const target = e.currentTarget as HTMLImageElement;
         target.style.display = 'none';
     }
 
-    let selectedProgram = null;
+    let selectedProgram: any = $state(null);
 
-    function handleSelect(program) {
+    function handleSelect(program: any) {
         selectedProgram = program;
     }
 
@@ -66,9 +63,11 @@
         selectedProgram = null;
     }
 
-    $: if (form?.success) {
-        selectedProgram = null;
-    }
+    $effect(() => {
+        if (form?.success) {
+            selectedProgram = null;
+        }
+    });
 </script>
 
 <div class="p-6 md:p-10 space-y-10 max-w-7xl mx-auto">
@@ -99,10 +98,10 @@
     {#if form?.results}
         <section in:fly={{ y: 20, duration: 500 }} class="space-y-6">
              <div class="flex items-center justify-between">
-                <h2 class="text-2xl font-bold text-white tracking-tight">Search Results</h2>
-                <button class="text-sm text-gray-400 hover:text-white transition-colors" on:click={() => form.results = null}>Clear</button>
-            </div>
-            {#if form.results.length > 0}
+                 <h2 class="text-2xl font-bold text-white tracking-tight">Search Results</h2>
+                 <button class="text-sm text-gray-400 hover:text-white transition-colors" onclick={() => form.results = []}>Clear</button>
+             </div>
+             {#if form.results && form.results.length > 0}
                 <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
                     {#each form.results as result}
                         <a href="/dashboard/series/{result.show.id}" class="group relative flex flex-col gap-3">
@@ -205,7 +204,7 @@
                     {#each data.onAir as prog}
                         <button
                             class="flex-shrink-0 w-[280px] bg-card hover:bg-card-hover border border-white/5 rounded-2xl p-3 flex flex-col gap-3 transition-all duration-300 hover:shadow-lg hover:shadow-black/20 group relative snap-start text-left"
-                            on:click={() => handleSelect(prog)}
+                            onclick={() => handleSelect(prog)}
                         >
                             <!-- Image -->
                             <div class="relative w-full aspect-[3/2] rounded-xl overflow-hidden bg-gray-800 shadow-md">
@@ -220,28 +219,28 @@
                                         src="{data.JELLYFIN_HOST}/Items/{prog.Id}/Images/Backdrop/0?Tag={prog.BackdropImageTags[0]}&fillWidth=400&quality=90&api_key={data.token}"
                                         alt={prog.Name}
                                         class="relative z-10 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                        on:error={handleImageError}
+                                        onerror={handleImageError}
                                     />
                                 {:else if prog.ImageTags && prog.ImageTags.Thumb}
                                     <img
                                         src="{data.JELLYFIN_HOST}/Items/{prog.Id}/Images/Thumb?Tag={prog.ImageTags.Thumb}&fillWidth=400&quality=90&api_key={data.token}"
                                         alt={prog.Name}
                                         class="relative z-10 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                        on:error={handleImageError}
+                                        onerror={handleImageError}
                                     />
                                 {:else if prog.SeriesPrimaryImageTag}
                                      <img
                                         src="{data.JELLYFIN_HOST}/Items/{prog.SeriesId}/Images/Primary?Tag={prog.SeriesPrimaryImageTag}&fillWidth=400&quality=90&api_key={data.token}"
                                         alt={prog.Name}
                                         class="relative z-10 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                        on:error={handleImageError}
+                                        onerror={handleImageError}
                                     />
                                 {:else if prog.ImageTags && prog.ImageTags.Primary}
                                     <img
                                         src="{data.JELLYFIN_HOST}/Items/{prog.Id}/Images/Primary?Tag={prog.ImageTags.Primary}&fillWidth=400&quality=90&api_key={data.token}"
                                         alt={prog.Name}
                                         class="relative z-10 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                        on:error={handleImageError}
+                                        onerror={handleImageError}
                                     />
                                 {/if}
 
@@ -252,7 +251,7 @@
                                 
                                 <!-- Progress Bar Overlay -->
                                 <div class="absolute bottom-0 left-0 h-1 bg-black/50 w-full">
-                                    <div class="h-full bg-red-500" style="width: {Math.max(0, Math.min(100, ((now - new Date(prog.StartDate)) / (new Date(prog.EndDate) - new Date(prog.StartDate))) * 100))}%;"></div>
+                                    <div class="h-full bg-red-500" style="width: {Math.max(0, Math.min(100, ((now.getTime() - new Date(prog.StartDate).getTime()) / (new Date(prog.EndDate).getTime() - new Date(prog.StartDate).getTime())) * 100))}%;"></div>
                                 </div>
                             </div>
 
@@ -303,7 +302,7 @@
                                     src="{data.JELLYFIN_HOST}/Items/{prog.Id}/Images/Primary?fillWidth=200&quality=90&api_key={data.token}"
                                     alt={prog.Name}
                                     class="relative z-10 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                                    on:error={handleImageError}
+                                    onerror={handleImageError}
                                 />
                             </div>
                             <div class="flex flex-col justify-center flex-1 min-w-0">
@@ -348,13 +347,13 @@
                                         </svg>
                                     </div>
                                     {#if series.tvmazeImage}
-                                        <img src={series.tvmazeImage} alt={series.name} class="relative z-10 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" on:error={handleImageError} />
+                                        <img src={series.tvmazeImage} alt={series.name} class="relative z-10 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onerror={handleImageError} />
                                     {:else if series.id && series.imageTag}
                                         <img
                                             src="{data.JELLYFIN_HOST}/Items/{series.id}/Images/Primary?Tag={series.imageTag}&fillWidth=400&quality=90&api_key={data.token}"
                                             alt={series.name}
                                             class="relative z-10 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                            on:error={handleImageError}
+                                            onerror={handleImageError}
                                         />
                                     {/if}
                                     
@@ -412,7 +411,7 @@
                                             src="{data.JELLYFIN_HOST}/Items/{timer.ChannelId}/Images/Primary?fillWidth=100&quality=90&api_key={data.token}"
                                             alt={timer.ChannelName}
                                             class="absolute inset-0 w-full h-full object-contain p-2 transition-opacity duration-300"
-                                            on:error={(e) => e.currentTarget.style.display = 'none'}
+                                            onerror={(e) => (e.currentTarget as HTMLElement).style.display = 'none'}
                                         />
                                     {/if}
 
@@ -422,14 +421,14 @@
                                             src="{data.JELLYFIN_HOST}/Items/{timer.ProgramId}/Images/Primary?fillWidth=100&quality=90&api_key={data.token}"
                                             alt={timer.Name}
                                             class="absolute inset-0 w-full h-full object-cover text-transparent"
-                                            on:error={handleImageError}
+                                            onerror={handleImageError}
                                         />
                                     {:else if timer.SeriesId}
                                         <img
                                             src="{data.JELLYFIN_HOST}/Items/{timer.SeriesId}/Images/Primary?{timer.SeriesPrimaryImageTag ? `Tag=${timer.SeriesPrimaryImageTag}&` : ''}fillWidth=100&quality=90&api_key={data.token}"
                                             alt={timer.Name}
                                             class="absolute inset-0 w-full h-full object-cover text-transparent"
-                                            on:error={handleImageError}
+                                            onerror={handleImageError}
                                         />
                                     {/if}
                                 </div>

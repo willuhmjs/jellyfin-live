@@ -1,7 +1,7 @@
-<script>
+<script lang="ts">
     import { enhance } from '$app/forms';
-    export let data;
-    export let form;
+    import type { PageData, ActionData } from './$types';
+    let { data, form }: { data: PageData; form: ActionData } = $props();
 </script>
 
 <div class="h-full overflow-y-auto p-6">

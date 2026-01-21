@@ -1,3 +1,6 @@
+<script lang="ts">
+</script>
+
 <div class="flex h-screen items-center justify-center bg-gray-900">
 	<div class="w-full max-w-md rounded-lg bg-gray-800 p-8 shadow-lg">
 		<h1 class="mb-6 text-center text-3xl font-bold text-white">Setup</h1>

@@ -46,6 +46,7 @@ export interface JellyfinProgram {
     ExternalImage?: string | null;
     Network?: string;
     TvMazeId?: number;
+    SeriesPrimaryImageTag?: string;
 }
 
 export interface JellyfinPerson {

@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import { toast } from '$lib/stores/toast';
     import { fade, fly } from 'svelte/transition';
     import { flip } from 'svelte/animate';

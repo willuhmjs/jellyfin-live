@@ -1,21 +1,21 @@
-<script>
+<script lang="ts">
     import { fade, fly } from 'svelte/transition';
     import { flip } from 'svelte/animate';
+    import type { PageData } from './$types';
 
-    export let data;
+    let { data }: { data: PageData } = $props();
 
-    let searchQuery = '';
-    let filter = 'all'; // 'all', 'Scheduled', 'Recorded'
+    let searchQuery = $state('');
+    let filter = $state('all'); // 'all', 'Scheduled', 'Recorded'
 
-    $: filteredSeries = data.monitoredSeries.filter(series => {
+    let filteredSeries = $derived(data.monitoredSeries.filter((series: any) => {
         const matchesSearch = series.name.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesFilter = filter === 'all' ? true : series.status === filter;
         return matchesSearch && matchesFilter;
-    });
+    }));
 
-    /** @param {Event} e */
-    function handleImageError(e) {
-        const target = /** @type {HTMLImageElement} */ (e.currentTarget);
+    function handleImageError(e: Event) {
+        const target = e.currentTarget as HTMLImageElement;
         target.style.display = 'none';
     }
 </script>
@@ -48,7 +48,7 @@
                 {#each ['all', 'Scheduled', 'Recorded'] as f}
                     <button
                         class="px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap {filter === f ? 'bg-accent text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}"
-                        on:click={() => filter = f}
+                        onclick={() => filter = f}
                     >
                         {f === 'all' ? 'All' : f}
                     </button>
@@ -74,7 +74,7 @@
                                 src="{data.JELLYFIN_HOST}/Items/{series.id}/Images/Primary?Tag={series.imageTag}&MaxWidth=400&api_key={data.token}"
                                 alt={series.name}
                                 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                on:error={handleImageError}
+                                onerror={handleImageError}
                             />
                         {:else}
                             <div class="w-full h-full flex items-center justify-center text-gray-500 bg-card">
