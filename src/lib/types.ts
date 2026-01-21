@@ -72,10 +72,34 @@ export interface TvMazeShow {
     image?: { medium: string; original: string };
     network?: { name: string };
     webChannel?: { name: string };
+    externals?: {
+        tvrage: number | null;
+        thetvdb: number | null;
+        imdb: string | null;
+    };
     status: string;
     _embedded?: {
         episodes: TvMazeEpisode[];
         cast: TvMazeCast[];
+        images?: TvMazeImage[];
+    };
+}
+
+export interface TvMazeImage {
+    id: number;
+    type: string;
+    main: boolean;
+    resolutions: {
+        original: {
+            url: string;
+            width: number;
+            height: number;
+        };
+        medium?: {
+            url: string;
+            width: number;
+            height: number;
+        };
     };
 }
 
@@ -122,6 +146,11 @@ export interface NormalizedShow {
     };
     isJellyfinFallback: boolean;
     isMovie: boolean;
+    externalIds: {
+        imdb?: string | null;
+        thetvdb?: string | null;
+        tvmaze?: string | null;
+    };
 }
 
 export interface NormalizedEpisode {

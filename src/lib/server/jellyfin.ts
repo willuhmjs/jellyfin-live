@@ -138,7 +138,7 @@ export async function getPrograms(userId: string, token: string, limit = 100, se
 			ImageTypeLimit: '1',
 			EnableImageTypes: 'Primary',
 			Fields:
-				'SeriesId,ProgramId,EpisodeTitle,Name,SeasonId,ParentIndexNumber,IndexNumber,StartDate,EndDate,SeriesName'
+				'SeriesId,ProgramId,EpisodeTitle,Name,SeasonId,ParentIndexNumber,IndexNumber,StartDate,EndDate,SeriesName,ImageTags'
 		});
 
 		if (searchTerm) {
@@ -248,7 +248,7 @@ export async function getItems(userId: string, token: string, ids: string[]): Pr
 		const params = new URLSearchParams({
 			Ids: ids.join(','),
 			Fields:
-				'EpisodeTitle,Overview,SeriesName,PremiereDate,PrimaryImageAspectRatio,Genres,Studios,OfficialRating,ProviderIds,DateCreated,CommunityRating,Status,People,BackdropImageTags,ProductionLocations'
+				'EpisodeTitle,Overview,SeriesName,PremiereDate,PrimaryImageAspectRatio,Genres,Studios,OfficialRating,ProviderIds,DateCreated,CommunityRating,Status,People,BackdropImageTags,ProductionLocations,ImageTags'
 		});
 
 		const res = await fetch(`${host}/Users/${userId}/Items?${params.toString()}`, {
@@ -360,7 +360,7 @@ export async function searchItems(userId: string, token: string, searchTerm: str
 			UserId: userId,
 			Recursive: 'true',
 			IncludeItemTypes: types.join(','),
-			Fields: 'Overview,PrimaryImageAspectRatio,ProviderIds,Type',
+			Fields: 'Overview,PrimaryImageAspectRatio,ProviderIds,Type,ImageTags,BackdropImageTags',
 			SortBy: 'SortName',
 			SortOrder: 'Ascending'
 		});

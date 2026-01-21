@@ -172,6 +172,40 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         };
     }
 
+    // Check for missing images and attempt to enrich via TVMaze lookup
+    if (!show.image?.background || !show.image?.original) {
+        const imdb = show.externalIds?.imdb || show.externals?.imdb;
+        const thetvdb = (show.externalIds?.thetvdb || show.externals?.thetvdb)?.toString();
+
+        if (imdb || thetvdb) {
+            console.log(`[Series Page] Missing images for ${show.name}. Attempting lookup via external IDs...`);
+            try {
+                const lookedUpShowRaw = await tvmaze.lookupShow({ imdb, thetvdb });
+                if (lookedUpShowRaw) {
+                    const lookedUpShow = normalizeShow(lookedUpShowRaw);
+                    if (lookedUpShow && lookedUpShow.image) {
+                        if (!show.image) show.image = {};
+                        
+                        // Fill in missing images
+                        if (!show.image.background && lookedUpShow.image.background) {
+                            show.image.background = lookedUpShow.image.background;
+                            console.log(`[Series Page] Enriched background image for ${show.name}`);
+                        }
+                        if (!show.image.original && lookedUpShow.image.original) {
+                            show.image.original = lookedUpShow.image.original;
+                            console.log(`[Series Page] Enriched original image for ${show.name}`);
+                        }
+                        if (!show.image.medium && lookedUpShow.image.medium) {
+                            show.image.medium = lookedUpShow.image.medium;
+                        }
+                    }
+                }
+            } catch (err) {
+                console.warn('[Series Page] Failed to lookup show for image enrichment:', err);
+            }
+        }
+    }
+
     let jellyfinEpisodes: AnyObject[] = [];
     let isMonitored = false;
     let seriesTimerId = null;

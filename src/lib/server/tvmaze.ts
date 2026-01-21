@@ -90,7 +90,7 @@ export async function searchShows(query: string): Promise<TvMazeSearchResult[]> 
 }
 
 export async function getShow(id: number | string): Promise<TvMazeShow | null> {
-    const show = await fetchFromTvMaze<TvMazeShow>(`/shows/${id}?embed=episodes`);
+    const show = await fetchFromTvMaze<TvMazeShow>(`/shows/${id}?embed[]=episodes&embed[]=images`);
     
     if (show && show.name && typeof show.id === 'number') {
         try {
@@ -145,4 +145,32 @@ export async function manualCacheSearch(query: string, show: TvMazeShow): Promis
     } catch (e) {
         console.warn('[TVMaze] Failed to manual cache:', e);
     }
+}
+
+export async function lookupShow(externalIds: { imdb?: string; thetvdb?: string }): Promise<TvMazeShow | null> {
+    let endpoint = '';
+    if (externalIds.imdb) {
+        endpoint = `/lookup/shows?imdb=${externalIds.imdb}`;
+    } else if (externalIds.thetvdb) {
+        endpoint = `/lookup/shows?thetvdb=${externalIds.thetvdb}`;
+    } else {
+        return null;
+    }
+
+    try {
+        // This endpoint redirects to the show details.
+        // fetchFromTvMaze uses fetch, which follows redirects by default.
+        // So basicShow will contain the show object.
+        const basicShow = await fetchFromTvMaze<TvMazeShow>(endpoint);
+
+        if (basicShow && typeof basicShow.id === 'number') {
+            console.log(`[TVMaze] Lookup found show ID: ${basicShow.id} for ${JSON.stringify(externalIds)}`);
+            // Call getShow to ensure we get the high-quality image data (embeds)
+            return await getShow(basicShow.id);
+        }
+    } catch (e) {
+        console.warn(`[TVMaze] Lookup failed for ${JSON.stringify(externalIds)}`, e);
+    }
+
+    return null;
 }
